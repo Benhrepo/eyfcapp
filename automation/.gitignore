@@ -1,0 +1,4 @@
+node_modules/
+*.log
+.cpanel-sync-config.php
+artifacts/

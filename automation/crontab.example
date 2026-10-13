@@ -1,0 +1,2 @@
+# PHP/cPanel cron. The script's London-time guard handles GMT and BST.
+0 17,18 * * 0 /usr/local/bin/php -q /absolute/path/to/euyfcapp/automation/fulltime-sync-cpanel.php --cron >> /absolute/path/to/euyfc-fulltime-sync.log 2>&1

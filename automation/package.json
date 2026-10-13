@@ -1,0 +1,20 @@
+{
+  "name": "euyfc-fulltime-sync",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Scheduled FA Full-Time results and fixtures sync for the EUYFC app.",
+  "engines": {
+    "node": ">=20.18.1"
+  },
+  "scripts": {
+    "sync": "node fulltime-sync.mjs",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "cheerio": "1.2.0"
+  },
+  "devDependencies": {
+    "playwright": "^1.64.0"
+  }
+}

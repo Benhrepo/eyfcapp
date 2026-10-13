@@ -1,0 +1,18 @@
+{
+  "id": "./live-score.html",
+  "name": "EUYFC Live Score",
+  "short_name": "EUYFC Live",
+  "description": "Live Eastbourne United U13s score, match activity and squad lineup.",
+  "start_url": "./live-score.html",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait",
+  "prefer_related_applications": false,
+  "background_color": "#020705",
+  "theme_color": "#06110b",
+  "icons": [
+    { "src": "assets/euyfc-live-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/euyfc-live-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

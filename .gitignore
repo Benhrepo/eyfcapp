@@ -1,0 +1,5 @@
+automation/node_modules/
+automation/artifacts/
+automation/.cpanel-sync-config.php
+changed_files_only.zip
+*.log

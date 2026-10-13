@@ -1,0 +1,47 @@
+name: Sunday FA Full-Time sync
+
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+  schedule:
+    # GitHub cron is UTC. Running both hours plus the script's London-time guard
+    # keeps this at 18:00 through both GMT and British Summer Time.
+    - cron: "0 17 * * 0"
+    - cron: "0 18 * * 0"
+
+concurrency:
+  group: euyfc-fulltime-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: automation
+    env:
+      FIREBASE_DATABASE_URL: ${{ secrets.FIREBASE_DATABASE_URL }}
+      FIREBASE_AUTH_TOKEN: ${{ secrets.FIREBASE_AUTH_TOKEN }}
+      GITHUB_EVENT_SCHEDULE: ${{ github.event.schedule }}
+      FULLTIME_BROWSER_FETCH: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: automation/package-lock.json
+      - run: npm ci
+      - run: npm test
+      - run: npx playwright install --with-deps chromium
+      - run: npm run sync -- --scheduled
+      - name: Upload Full-Time browser diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fulltime-browser-diagnostics
+          path: automation/artifacts/
+          if-no-files-found: ignore

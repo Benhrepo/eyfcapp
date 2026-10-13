@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Eastbourne United FC badge">
+  <circle cx="256" cy="256" r="245" fill="#f4f4f4"/>
+  <circle cx="256" cy="256" r="218" fill="#080808"/>
+  <circle cx="256" cy="256" r="132" fill="#f4f4f4"/>
+  <path fill="#080808" d="M166 251c9-48 47-86 94-96 46-9 92 9 119 47l-49 7-29-25-69 8-42 38 9 43z"/>
+  <path fill="#080808" d="M245 181h121l-37 35 69 21-29 32-83-42-57 13z"/>
+  <path fill="#080808" d="M164 265 221 238l61 18 33 55-44 61h-71l-42-56z"/>
+  <path fill="#f4f4f4" d="M219 263h67l28 48-39 51h-57l-36-48z"/>
+  <path fill="#080808" d="M231 276h44l20 35-26 34h-39l-25-34z"/>
+  <path fill="#f4f4f4" d="M178 287l33-19 22 45-36 43zM299 267l39 13-29 49-18-20z"/>
+  <circle cx="156" cy="256" r="18" fill="#080808"/>
+  <circle cx="356" cy="256" r="18" fill="#080808"/>
+  <circle cx="265" cy="172" r="8" fill="#f4f4f4"/>
+  <path id="topArc" d="M96 252a160 160 0 0 1 320 0" fill="none"/>
+  <text font-family="Arial Black, Arial, sans-serif" font-size="33" font-weight="900" fill="#080808" letter-spacing="2">
+    <textPath href="#topArc" startOffset="50%" text-anchor="middle">EASTBOURNE UNITED FC</textPath>
+  </text>
+</svg>

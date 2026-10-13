@@ -1,0 +1,598 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#06110b">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="EUYFC Live">
+  <meta http-equiv="Cache-Control" content="no-store, max-age=0">
+  <title>EUYFC Live Score</title>
+  <link rel="manifest" href="live-score.webmanifest?v=2">
+  <link rel="icon" type="image/png" sizes="192x192" href="assets/euyfc-live-192.png">
+  <link rel="apple-touch-icon" href="assets/euyfc-live-192.png">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #020705;
+      --surface: #08120d;
+      --surface-2: #0d1a13;
+      --line: rgba(255,255,255,.105);
+      --ink: #f5f8f6;
+      --muted: #91a198;
+      --green: #9cff4a;
+      --green-2: #61df31;
+      --yellow: #ffd938;
+      --red: #ff666d;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html { min-height: 100%; background: var(--bg); scroll-behavior: smooth; }
+    body {
+      min-height: 100%;
+      margin: 0;
+      overflow-x: hidden;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 50% -10%, rgba(156,255,74,.14), transparent 30%),
+        linear-gradient(rgba(255,255,255,.018) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.018) 1px, transparent 1px),
+        linear-gradient(155deg, #06130d, #020705 56%);
+      background-size: auto, 40px 40px, 40px 40px, auto;
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-weight: 400;
+    }
+    button { font: inherit; touch-action: manipulation; }
+    button:focus-visible { outline: 3px solid rgba(156,255,74,.42); outline-offset: 3px; }
+    .topbar {
+      position: sticky;
+      z-index: 30;
+      top: 0;
+      min-height: calc(70px + var(--safe-top));
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      padding: calc(10px + var(--safe-top)) 13px 10px;
+      border-bottom: 1px solid rgba(255,255,255,.08);
+      background: rgba(2,8,5,.9);
+      backdrop-filter: blur(18px);
+    }
+    .brand-mark { position: relative; flex: 0 0 auto; width: 45px; height: 45px; }
+    .brand-mark img { width: 100%; height: 100%; padding: 2px; border: 2px solid rgba(255,255,255,.9); border-radius: 50%; background: white; object-fit: contain; }
+    .brand-mark::after { content: ""; position: absolute; right: -1px; bottom: 0; width: 11px; height: 11px; border: 2px solid #06100a; border-radius: 50%; background: var(--green); box-shadow: 0 0 12px rgba(156,255,74,.8); }
+    .brand-copy { min-width: 0; flex: 1; }
+    .brand-copy strong, .brand-copy span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .brand-copy strong { color: #fff; font-size: 17px; font-weight: 600; }
+    .brand-copy span { margin-top: 3px; color: var(--green); font-size: 11px; letter-spacing: 1.2px; text-transform: uppercase; }
+    .top-actions { display: flex; gap: 7px; }
+    .top-action { min-height: 42px; padding: 0 12px; border: 1px solid var(--line); border-radius: 12px; background: rgba(255,255,255,.055); color: #e3ebe5; font-size: 12px; cursor: pointer; }
+    .top-action.notifications-on { border-color: rgba(156,255,74,.38); background: rgba(156,255,74,.11); color: var(--green); }
+    .connection-strip { position: relative; z-index: 2; display: flex; align-items: center; justify-content: center; gap: 7px; min-height: 34px; padding: 7px 12px; border-bottom: 1px solid rgba(255,255,255,.055); background: rgba(4,13,8,.84); color: #9eada3; font-size: 12px; letter-spacing: .25px; text-align: center; }
+    .connection-dot { width: 7px; height: 7px; flex: 0 0 auto; border-radius: 50%; background: var(--green); box-shadow: 0 0 12px rgba(156,255,74,.75); }
+    .connection-strip.connecting .connection-dot { background: var(--yellow); box-shadow: 0 0 12px rgba(255,217,56,.6); animation: breathe 1.3s ease-in-out infinite; }
+    .connection-strip.offline .connection-dot { background: var(--red); box-shadow: none; }
+    main { width: min(100%, 1120px); margin: 0 auto; padding: 14px 12px calc(38px + var(--safe-bottom)); }
+    .loading-card, .no-match { min-height: calc(100dvh - 150px); display: grid; place-items: center; padding: 30px 18px; text-align: center; }
+    .loading-ball { width: 62px; height: 62px; display: grid; place-items: center; margin: 0 auto 17px; border: 1px solid rgba(156,255,74,.28); border-radius: 22px; background: rgba(156,255,74,.08); font-size: 30px; animation: float 1.6s ease-in-out infinite; }
+    .loading-card h1, .no-match h1 { margin: 0; color: #fff; font-size: 27px; font-weight: 600; }
+    .loading-card p, .no-match p { max-width: 470px; margin: 9px auto 0; color: var(--muted); font-size: 13px; line-height: 1.55; }
+    .score-hero {
+      position: relative;
+      isolation: isolate;
+      overflow: hidden;
+      padding: 17px 14px 15px;
+      border: 1px solid rgba(156,255,74,.22);
+      border-radius: 25px;
+      background:
+        linear-gradient(180deg, rgba(2,8,5,.18), rgba(2,8,5,.9)),
+        radial-gradient(circle at 50% 18%, rgba(156,255,74,.22), transparent 34%),
+        linear-gradient(130deg, #0a2b18, #06110b 64%);
+      box-shadow: 0 28px 70px rgba(0,0,0,.38);
+    }
+    .score-hero::before { content: ""; position: absolute; z-index: -1; inset: 0; opacity: .24; background: repeating-linear-gradient(90deg, transparent 0 11.8%, rgba(255,255,255,.035) 12% 12.2%, transparent 12.4% 25%); }
+    .match-meta { display: flex; align-items: center; justify-content: center; gap: 7px; flex-wrap: wrap; color: #b9c6bd; font-size: 11px; letter-spacing: .55px; text-transform: uppercase; }
+    .meta-chip { padding: 6px 9px; border: 1px solid rgba(255,255,255,.1); border-radius: 999px; background: rgba(0,0,0,.24); }
+    .meta-chip.live { border-color: rgba(156,255,74,.4); color: var(--green); background: rgba(156,255,74,.09); }
+    .meta-chip.live::before { content: ""; display: inline-block; width: 6px; height: 6px; margin-right: 6px; border-radius: 50%; background: currentColor; box-shadow: 0 0 10px currentColor; animation: breathe 1.3s ease-in-out infinite; }
+    .scoreboard { display: grid; grid-template-columns: minmax(0,1fr) auto minmax(0,1fr); gap: 8px; align-items: center; margin-top: 21px; }
+    .score-team { min-width: 0; display: grid; justify-items: center; text-align: center; }
+    .team-crest { position: relative; width: 78px; height: 78px; display: grid; place-items: center; }
+    .team-crest img { position: relative; z-index: 1; width: 100%; height: 100%; padding: 4px; border: 3px solid rgba(255,255,255,.95); border-radius: 50%; background: #fff; object-fit: contain; box-shadow: 0 0 0 4px rgba(156,255,74,.13), 0 15px 34px rgba(0,0,0,.34); }
+    .crest-placeholder { position: relative; z-index: 0; width: 100%; height: 100%; display: grid; place-items: center; border: 3px solid rgba(255,255,255,.72); border-radius: 50%; background: linear-gradient(145deg, #173c25, #07120c); color: var(--green); font-size: 21px; letter-spacing: -1px; }
+    .crest-placeholder[hidden] { display: none !important; }
+    .team-name { width: 100%; margin-top: 10px; color: #fff; font-size: 15px; font-weight: 600; line-height: 1.2; }
+    .team-home-away { margin-top: 5px; color: #9aaba0; font-size: 11px; letter-spacing: 1px; text-transform: uppercase; }
+    .score-centre { min-width: 120px; display: grid; justify-items: center; }
+    .score-digits { display: flex; align-items: center; gap: 8px; color: #fff; font-size: clamp(45px, 14vw, 68px); font-weight: 600; line-height: .92; letter-spacing: -3px; font-variant-numeric: tabular-nums; }
+    .score-digits i { color: #5b6b60; font-style: normal; font-size: .48em; }
+    .match-clock { min-width: 92px; margin-top: 12px; padding: 8px 11px; border: 1px solid rgba(156,255,74,.32); border-radius: 12px; background: rgba(1,8,4,.78); color: var(--green); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 19px; letter-spacing: .5px; text-align: center; font-variant-numeric: tabular-nums; box-shadow: inset 0 0 24px rgba(156,255,74,.04); }
+    .clock-caption { margin-top: 6px; color: #9bab9f; font-size: 10px; letter-spacing: 1px; text-transform: uppercase; }
+    .latest-moment { margin-top: 18px; padding: 12px 13px; border: 1px solid rgba(255,255,255,.09); border-radius: 14px; background: rgba(0,0,0,.25); color: #ced8d1; font-size: 13px; line-height: 1.45; text-align: center; }
+    .latest-moment strong { color: #fff; font-weight: 600; }
+    .match-facts { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 8px; margin-top: 10px; }
+    .match-fact { min-height: 74px; display: grid; align-content: center; padding: 10px; border: 1px solid rgba(255,255,255,.09); border-radius: 15px; background: rgba(255,255,255,.032); text-align: center; }
+    .match-fact span { color: #9daca2; font-size: 10px; letter-spacing: .65px; text-transform: uppercase; }
+    .match-fact strong { display: block; margin-top: 7px; overflow: hidden; color: #fff; font-size: 15px; font-weight: 550; line-height: 1.25; text-overflow: ellipsis; }
+    .scorer-strip { margin-top: 10px; padding: 14px; border: 1px solid rgba(255,255,255,.09); border-radius: 18px; background: rgba(6,15,10,.82); }
+    .section-label { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 11px; color: var(--green); font-size: 12px; letter-spacing: 1px; text-transform: uppercase; }
+    .section-label span:last-child { color: #95a69b; font-size: 11px; letter-spacing: .3px; }
+    .scorer-list { display: flex; flex-wrap: wrap; gap: 7px; }
+    .scorer-chip { display: inline-flex; align-items: center; gap: 8px; min-height: 42px; padding: 8px 13px 8px 8px; border: 1px solid rgba(156,255,74,.2); border-radius: 999px; background: rgba(156,255,74,.07); color: #e7f2e9; font-size: 14px; }
+    .scorer-chip i { width: 25px; height: 25px; display: grid; place-items: center; border-radius: 50%; background: rgba(156,255,74,.14); font-style: normal; font-size: 12px; }
+    .scorer-empty { color: #a3b0a7; font-size: 14px; }
+    .content-grid { display: grid; gap: 11px; margin-top: 11px; }
+    .live-card { overflow: hidden; border: 1px solid var(--line); border-radius: 21px; background: linear-gradient(180deg, rgba(255,255,255,.035), transparent), rgba(6,14,9,.9); box-shadow: 0 18px 50px rgba(0,0,0,.22); }
+    .card-head { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 16px; border-bottom: 1px solid rgba(255,255,255,.075); }
+    .card-head h2 { margin: 0; color: #fff; font-size: 20px; font-weight: 600; }
+    .card-head p { margin: 5px 0 0; color: #9dacA2; font-size: 12px; line-height: 1.4; }
+    .card-count { min-width: 42px; min-height: 42px; display: grid; place-items: center; padding: 5px; border: 1px solid rgba(156,255,74,.2); border-radius: 13px; background: rgba(156,255,74,.07); color: var(--green); font-size: 13px; }
+    .timeline { display: grid; padding: 5px 14px 10px; }
+    .timeline-event { display: grid; grid-template-columns: 43px 35px minmax(0,1fr) auto; gap: 9px; align-items: center; min-height: 62px; border-bottom: 1px solid rgba(255,255,255,.065); }
+    .timeline-event:last-child { border-bottom: 0; }
+    .timeline-minute { color: var(--green); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 14px; text-align: center; }
+    .timeline-icon { width: 35px; height: 35px; display: grid; place-items: center; border-radius: 11px; background: rgba(156,255,74,.09); font-size: 16px; }
+    .timeline-copy { min-width: 0; }
+    .timeline-copy strong, .timeline-copy small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .timeline-copy strong { color: #eef5f0; font-size: 14px; font-weight: 550; }
+    .timeline-copy small { margin-top: 4px; color: #9aaba0; font-size: 11px; }
+    .timeline-score { min-width: 44px; padding: 6px 8px; border-radius: 9px; background: rgba(255,255,255,.055); color: #dce6df; font-size: 12px; text-align: center; }
+    .timeline-empty { padding: 34px 18px; color: #a1afa6; font-size: 14px; line-height: 1.55; text-align: center; }
+    .lineup { background: #07110b; }
+    .pitch { position: relative; height: 530px; overflow: hidden; margin: 10px; border: 2px solid rgba(229,255,224,.68); border-radius: 18px; background: repeating-linear-gradient(90deg, rgba(255,255,255,.025) 0 12.5%, rgba(0,0,0,.035) 12.5% 25%), radial-gradient(circle at 50% 50%, rgba(156,255,74,.08), transparent 38%), linear-gradient(180deg, #19743e, #0d512c); box-shadow: inset 0 0 48px rgba(0,0,0,.25); }
+    .pitch::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; border-top: 2px solid rgba(238,255,234,.6); }
+    .pitch::after { content: ""; position: absolute; left: 50%; top: 50%; width: 88px; height: 88px; border: 2px solid rgba(238,255,234,.6); border-radius: 50%; transform: translate(-50%,-50%); }
+    .pitch-box { position: absolute; left: 19%; width: 62%; height: 16%; border: 2px solid rgba(238,255,234,.58); pointer-events: none; }
+    .pitch-box.top { top: -2px; border-top: 0; }
+    .pitch-box.bottom { bottom: -2px; border-bottom: 0; }
+    .pitch-goal { position: absolute; left: 37%; width: 26%; height: 4%; border: 2px solid rgba(238,255,234,.55); pointer-events: none; }
+    .pitch-goal.top { top: -2px; }
+    .pitch-goal.bottom { bottom: -2px; }
+    .centre-dot { position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; border-radius: 50%; background: rgba(238,255,234,.8); transform: translate(-50%,-50%); }
+    .pitch-player { position: absolute; z-index: 3; left: calc(var(--x) * 1%); top: calc(var(--y) * 1%); width: 86px; display: grid; justify-items: center; transform: translate(-50%,-50%); }
+    .pitch-player.compact { width: 64px; }
+    .pitch-shirt { position: relative; z-index: 1; width: 43px; height: 43px; display: grid; place-items: center; border: 2px solid rgba(255,255,255,.95); border-radius: 13px 13px 17px 17px; background: linear-gradient(145deg, #f4ffed, #9cff4a); color: #061009; font-size: 14px; box-shadow: 0 8px 17px rgba(0,0,0,.36); }
+    .pitch-name { width: 84px; margin-top: -2px; overflow: hidden; padding: 6px 5px 7px; border: 1px solid rgba(255,255,255,.48); border-radius: 8px; background: rgba(1,6,3,.94); color: #fff; font-size: 12px; line-height: 1.08; text-align: center; text-overflow: ellipsis; white-space: nowrap; box-shadow: 0 6px 12px rgba(0,0,0,.38); }
+    .pitch-name small { display: block; margin-bottom: 3px; color: var(--green); font-size: 10px; letter-spacing: .4px; }
+    .pitch-player.compact .pitch-name { width: 67px; padding-inline: 2px; font-size: 11px; }
+    .pitch-player.compact .pitch-shirt { width: 39px; height: 39px; }
+    .pitch-player.empty { opacity: .42; }
+    .pitch-player.empty .pitch-shirt { border-style: dashed; background: rgba(1,8,4,.45); color: #fff; font-size: 8px; }
+    .bench { padding: 2px 12px 13px; }
+    .bench-head { display: flex; justify-content: space-between; gap: 10px; padding: 9px 2px; color: #9eadA3; font-size: 11px; letter-spacing: .65px; text-transform: uppercase; }
+    .bench-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 7px; }
+    .bench-player { display: grid; grid-template-columns: 38px minmax(0,1fr); gap: 9px; align-items: center; min-height: 52px; padding: 7px 9px; border: 1px solid rgba(255,255,255,.09); border-radius: 12px; background: rgba(255,255,255,.035); color: #e7eee9; font-size: 13px; }
+    .bench-player span:first-child { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; background: rgba(156,255,74,.1); color: var(--green); }
+    .notification-note { margin: 12px 8px 14px; color: #94a39a; font-size: 11px; line-height: 1.45; text-align: center; }
+    .goal-celebration { position: fixed; z-index: 80; inset: 0; display: grid; place-items: center; padding: 24px; background: rgba(1,7,3,.82); backdrop-filter: blur(12px); animation: celebration-in .32s ease both; }
+    .goal-celebration.hide { animation: celebration-out .3s ease both; }
+    .goal-card { position: relative; width: min(100%, 410px); overflow: hidden; padding: 32px 22px; border: 1px solid rgba(156,255,74,.48); border-radius: 30px; background: radial-gradient(circle at 50% 0, rgba(156,255,74,.27), transparent 37%), linear-gradient(150deg, #0c2917, #06100a); box-shadow: 0 35px 100px rgba(0,0,0,.55), 0 0 60px rgba(156,255,74,.12); text-align: center; }
+    .goal-card.opponent { border-color: rgba(255,102,109,.46); background: radial-gradient(circle at 50% 0, rgba(255,102,109,.2), transparent 37%), linear-gradient(150deg, #291013, #0d0708); }
+    .goal-word { color: var(--green); font-size: 50px; font-weight: 650; letter-spacing: 5px; line-height: 1; text-transform: uppercase; animation: goal-pop .62s cubic-bezier(.2,.85,.2,1.25) both; }
+    .goal-card.opponent .goal-word { color: #ff8c91; }
+    .goal-scorer { margin-top: 17px; color: #fff; font-size: 25px; font-weight: 600; }
+    .goal-score { margin-top: 13px; color: #c7d5cb; font-size: 16px; }
+    .toast { position: fixed; z-index: 90; left: 50%; bottom: calc(18px + var(--safe-bottom)); max-width: calc(100vw - 28px); padding: 12px 15px; border: 1px solid rgba(156,255,74,.26); border-radius: 12px; background: rgba(5,16,9,.96); color: #eaf2ec; font-size: 13px; text-align: center; opacity: 0; pointer-events: none; transform: translate(-50%,18px); transition: opacity .2s ease, transform .2s ease; box-shadow: 0 15px 45px rgba(0,0,0,.4); }
+    .toast.show { opacity: 1; transform: translate(-50%,0); }
+    @keyframes breathe { 50% { opacity: .38; transform: scale(.78); } }
+    @keyframes float { 50% { transform: translateY(-7px) rotate(5deg); } }
+    @keyframes celebration-in { from { opacity: 0; } }
+    @keyframes celebration-out { to { opacity: 0; } }
+    @keyframes goal-pop { 0% { opacity: 0; transform: scale(.52); } 68% { opacity: 1; transform: scale(1.08); } 100% { transform: scale(1); } }
+    @media (min-width: 760px) {
+      main { padding-top: 24px; }
+      .score-hero { padding: 24px 32px 22px; }
+      .team-crest { width: 104px; height: 104px; }
+      .team-name { font-size: 17px; }
+      .score-centre { min-width: 180px; }
+      .content-grid { grid-template-columns: minmax(320px,.78fr) minmax(430px,1.22fr); align-items: start; }
+      .timeline-card { position: sticky; top: 112px; }
+      .pitch { height: 620px; }
+      .pitch-player { width: 102px; }
+      .pitch-name { width: 100px; font-size: 13px; }
+      .pitch-player.compact { width: 74px; }
+      .pitch-player.compact .pitch-name { width: 72px; font-size: 11.5px; }
+    }
+    @media (max-width: 390px) {
+      .top-action { padding-inline: 9px; }
+      .team-crest { width: 68px; height: 68px; }
+      .score-centre { min-width: 108px; }
+      .score-digits { gap: 6px; }
+      .match-facts { grid-template-columns: repeat(2,minmax(0,1fr)); }
+      .pitch { height: 500px; margin: 8px; }
+      .pitch-player { width: 78px; }
+      .pitch-name { width: 76px; font-size: 11.5px; }
+      .pitch-player.compact { width: 60px; }
+      .pitch-player.compact .pitch-name { width: 60px; font-size: 10.5px; }
+      .bench-grid { grid-template-columns: 1fr; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <span class="brand-mark"><img src="assets/badge.svg" alt="Eastbourne United"></span>
+    <span class="brand-copy"><strong>EUYFC Live Score</strong><span>Eastbourne United U13s · Match centre</span></span>
+    <span class="top-actions"><button class="top-action" id="notifyButton" type="button">🔔 Alerts</button><button class="top-action" id="shareButton" type="button">Share</button></span>
+  </header>
+  <div class="connection-strip connecting" id="connectionStrip"><span class="connection-dot"></span><span id="connectionText">Connecting to the live match…</span></div>
+  <main id="app"><section class="loading-card"><div><div class="loading-ball">⚽</div><h1>Joining the match</h1><p>Connecting directly to the live Matchday feed. The score will update automatically.</p></div></section></main>
+  <div id="goalCelebration" aria-live="assertive"></div>
+  <div class="toast" id="toast" role="status"></div>
+  <script>
+    const ROOT = "https://eastbourneu13-default-rtdb.firebaseio.com/eastbourne-united-u13";
+    const CLUB = "Eastbourne United U13s";
+    const DEFAULT_FORMATION = "3-3-2";
+    const $ = id => document.getElementById(id);
+    const state = {
+      live: null,
+      current: null,
+      initialised: false,
+      knownEvents: new Set(),
+      stream: null,
+      streamConnected: false,
+      lastUpdateAt: 0,
+      notificationsEnabled: localStorage.getItem("liveScoreNotifications") === "1" && "Notification" in window && Notification.permission === "granted",
+      renderSignature: ""
+    };
+    const esc = value => String(value ?? "").replace(/[&<>"']/g, character => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[character]);
+    function parseLive(raw) {
+      if (!raw || typeof raw !== "object" || !raw.fixture || !raw.fixture.id) return null;
+      return {
+        fixtureId: String(raw.fixtureId || raw.fixture.id),
+        publishedAt: Number(raw.publishedAt || raw.fixture.matchdayUpdatedAt || 0),
+        fixture: raw.fixture,
+        players: Array.isArray(raw.players) ? raw.players : [],
+        opponentBadge: String(raw.opponentBadge || "")
+      };
+    }
+    function parseDate(value) {
+      const text = String(value || "").trim();
+      let match = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+      if (match) return new Date(Number(match[3].length === 2 ? `20${match[3]}` : match[3]), Number(match[2]) - 1, Number(match[1]), 12);
+      match = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+      if (match) return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12);
+      const parsed = new Date(text);
+      return Number.isFinite(parsed.getTime()) ? parsed : null;
+    }
+    function dateLabel(value) {
+      const date = parseDate(value);
+      return date ? new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" }).format(date) : (value || "Date TBC");
+    }
+    function timeLabel(value) {
+      const text = String(value || "").trim();
+      const match = text.match(/^(\d{1,2}):(\d{2})$/);
+      if (!match) return text || "KO TBC";
+      const date = new Date(2000, 0, 1, Number(match[1]), Number(match[2]));
+      return new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit" }).format(date);
+    }
+    function phase(fixture) {
+      if (!fixture) return "none";
+      if (fixture.completed || fixture.matchdayStatus === "final") return "final";
+      if (["first-half", "half-time", "second-half", "full-time"].includes(fixture.matchdayStatus)) return fixture.matchdayStatus;
+      return "ready";
+    }
+    function isActive(fixture) { return ["first-half", "half-time", "second-half", "full-time"].includes(phase(fixture)); }
+    function phaseLabel(fixture) {
+      return ({ ready: "Not started", "first-half": "First half", "half-time": "Half time", "second-half": "Second half", "full-time": "Full time", final: "Full time" })[phase(fixture)] || "Match";
+    }
+    function score(value) { return Math.max(0, Number(value) >= 0 ? Number(value) : 0); }
+    function halfLength(fixture) { return Math.max(1, Number(fixture?.matchdayHalfLength || 35)); }
+    function storedElapsedSeconds(value, fallback) {
+      const milliseconds = Number(value);
+      return Number.isFinite(milliseconds) && milliseconds >= 0 ? Math.floor(milliseconds / 1000) : fallback;
+    }
+    function firstHalfClockSeconds(fixture) {
+      const regulationSeconds = halfLength(fixture) * 60;
+      if (fixture?.firstHalfElapsedMs !== undefined && fixture?.firstHalfElapsedMs !== null) return storedElapsedSeconds(fixture.firstHalfElapsedMs, regulationSeconds);
+      const startedAt = Number(fixture?.firstHalfStartedAt || fixture?.startedAt || 0);
+      const stoppedAt = Number(fixture?.halfTimeAt || 0);
+      if (startedAt && stoppedAt >= startedAt) return Math.floor((stoppedAt - startedAt) / 1000);
+      return regulationSeconds;
+    }
+    function clockSeconds(fixture) {
+      const currentPhase = phase(fixture);
+      const halfSeconds = halfLength(fixture) * 60;
+      if (currentPhase === "ready" || currentPhase === "none") return 0;
+      if (currentPhase === "first-half") return Math.max(0, Math.floor((Date.now() - Number(fixture.firstHalfStartedAt || fixture.startedAt || Date.now())) / 1000));
+      const firstElapsed = firstHalfClockSeconds(fixture);
+      if (currentPhase === "half-time") return firstElapsed;
+      if (currentPhase === "second-half") return firstElapsed + Math.max(0, Math.floor((Date.now() - Number(fixture.secondHalfStartedAt || Date.now())) / 1000));
+      const secondElapsed = storedElapsedSeconds(fixture.secondHalfElapsedMs, halfSeconds);
+      return firstElapsed + secondElapsed;
+    }
+    function clockLabel(fixture) {
+      const seconds = clockSeconds(fixture);
+      return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
+    }
+    function currentSnapshot() {
+      return state.live;
+    }
+    function playerMap(snapshot) {
+      const merged = new Map();
+      (snapshot?.players || []).forEach(player => merged.set(String(player.id), player));
+      return merged;
+    }
+    function playerName(id, snapshot) { return playerMap(snapshot).get(String(id))?.name || "Player"; }
+    function playerNumber(id, snapshot) { return playerMap(snapshot).get(String(id))?.squadNumber || "–"; }
+    function eventKey(event) { return [event?.type || "event", event?.createdAt || event?.id || "", event?.side || "", event?.playerId || ""].join("|"); }
+    function eventList(snapshot) { return Array.isArray(snapshot?.fixture?.matchdayEvents) ? snapshot.fixture.matchdayEvents.filter(Boolean) : []; }
+    function sideData(snapshot) {
+      const fixture = snapshot.fixture;
+      const ours = { name: CLUB, score: score(fixture.ourScore), badge: "assets/badge.svg", us: true };
+      const opponent = { name: fixture.opponent || "Opposition", score: score(fixture.opponentScore), badge: snapshot.opponentBadge || "", us: false };
+      return fixture.venue === "Away" ? { left: opponent, right: ours } : { left: ours, right: opponent };
+    }
+    function scoreAfter(event, snapshot) {
+      if (!Number.isFinite(Number(event.ourScoreAfter)) || !Number.isFinite(Number(event.opponentScoreAfter))) return "";
+      return snapshot.fixture.venue === "Away" ? `${Number(event.opponentScoreAfter)}–${Number(event.ourScoreAfter)}` : `${Number(event.ourScoreAfter)}–${Number(event.opponentScoreAfter)}`;
+    }
+    function crestHtml(side) {
+      const initials = String(side.name || "OP").split(/\s+/).filter(Boolean).slice(0,2).map(word => word[0]).join("").toUpperCase();
+      return `<span class="team-crest">${side.badge ? `<img src="${esc(side.badge)}" alt="${esc(side.name)} badge" onerror="this.hidden=true;this.nextElementSibling.hidden=false">` : ""}<span class="crest-placeholder" ${side.badge ? "hidden" : ""}>${esc(initials)}</span></span>`;
+    }
+    function fixtureSquadIds(fixture) {
+      const ids = [];
+      [fixture?.squadOrder, fixture?.playerIds, fixture?.lineupPositions].forEach(list => (Array.isArray(list) ? list : []).forEach(id => { const key = String(id || ""); if (key && !ids.includes(key)) ids.push(key); }));
+      return ids;
+    }
+    function parseFormation(value) {
+      const raw = String(value || "").trim().replace(/[–—]/g, "-");
+      const parts = /^[0-9]+$/.test(raw) ? [...raw].map(Number) : (raw.match(/\d+/g) || []).map(Number);
+      if (!parts.length || parts.length > 5 || parts.some(number => number < 1 || number > 5) || parts.reduce((sum, number) => sum + number, 0) > 8) return { parts: [3,3,2], shape: DEFAULT_FORMATION };
+      return { parts, shape: parts.join("-") };
+    }
+    function formationCodes(role, count) {
+      const codes = {
+        defence: { 1:["CB"], 2:["LCB","RCB"], 3:["LB","CB","RB"], 4:["LB","LCB","RCB","RB"], 5:["LWB","LCB","CB","RCB","RWB"] },
+        midfield: { 1:["CM"], 2:["LCM","RCM"], 3:["LCM","CM","RCM"], 4:["LM","LCM","RCM","RM"], 5:["LM","LCM","CM","RCM","RM"] },
+        defensive: { 1:["DM"], 2:["LDM","RDM"], 3:["LDM","DM","RDM"], 4:["LM","LDM","RDM","RM"], 5:["LWB","LDM","DM","RDM","RWB"] },
+        attacking: { 1:["AM"], 2:["LAM","RAM"], 3:["LAM","AM","RAM"], 4:["LW","LAM","RAM","RW"], 5:["LW","LAM","AM","RAM","RW"] },
+        forward: { 1:["ST"], 2:["LS","RS"], 3:["LW","ST","RW"], 4:["LW","LF","RF","RW"], 5:["LW","LF","ST","RF","RW"] }
+      };
+      return codes[role][count] || Array.from({ length: count }, (_, index) => `${role[0].toUpperCase()}${index + 1}`);
+    }
+    function formationSlots(value) {
+      const shape = parseFormation(value);
+      const slots = [{ code: "GK", x: 50, y: 89, compact: false }];
+      shape.parts.forEach((count, lineIndex) => {
+        let role = "midfield";
+        if (lineIndex === 0) role = "defence";
+        else if (lineIndex === shape.parts.length - 1) role = "forward";
+        else if (shape.parts.length > 3 && lineIndex === 1) role = "defensive";
+        else if (shape.parts.length > 3 && lineIndex === shape.parts.length - 2) role = "attacking";
+        const codes = formationCodes(role, count);
+        const y = shape.parts.length === 1 ? 43 : 70 - lineIndex * (52 / (shape.parts.length - 1));
+        const edge = count === 1 ? 50 : count === 2 ? 32 : count === 3 ? 20 : count === 4 ? 14 : 10;
+        const gap = count === 1 ? 0 : (100 - edge * 2) / (count - 1);
+        for (let index = 0; index < count; index++) slots.push({ code: codes[index], x: count === 1 ? 50 : edge + index * gap, y, compact: count >= 5 });
+      });
+      return { shape: shape.shape, slots };
+    }
+    function scorerHtml(snapshot) {
+      const fixture = snapshot.fixture;
+      const scorers = Object.entries(fixture.goalCounts || {}).filter(([, count]) => Number(count) > 0).map(([id, count]) => ({ id, count: Number(count), name: playerName(id, snapshot) })).sort((a,b) => b.count - a.count || a.name.localeCompare(b.name));
+      const opponentGoals = eventList(snapshot).filter(event => event.type === "goal" && event.side === "opponent").length;
+      if (!scorers.length && !opponentGoals) return `<span class="scorer-empty">Waiting for the first goal.</span>`;
+      return `${scorers.map(row => `<span class="scorer-chip"><i>⚽</i><span>${esc(row.name)}${row.count > 1 ? ` × ${row.count}` : ""}</span></span>`).join("")}${opponentGoals ? `<span class="scorer-chip"><i>⚽</i><span>${esc(fixture.opponent || "Opposition")}${opponentGoals > 1 ? ` × ${opponentGoals}` : ""}</span></span>` : ""}`;
+    }
+    function timelineHtml(snapshot) {
+      const events = eventList(snapshot).slice().sort((a,b) => Number(b.createdAt || 0) - Number(a.createdAt || 0)).slice(0,12);
+      if (!events.length) return `<div class="timeline-empty">Match activity will appear here instantly when the manager starts the match or records a goal.</div>`;
+      return events.map(event => {
+        const goal = event.type === "goal";
+        const scorer = goal ? (event.side === "opponent" ? `${snapshot.fixture.opponent || "Opposition"} goal` : `${playerName(event.playerId, snapshot)} scored`) : (event.label || phaseLabel(snapshot.fixture));
+        const detail = goal ? (event.side === "opponent" ? "Opposition" : CLUB) : "Match update";
+        const eventScore = scoreAfter(event, snapshot);
+        return `<div class="timeline-event"><span class="timeline-minute">${esc(event.minute || (goal ? "⚽" : "—"))}</span><span class="timeline-icon">${goal ? "⚽" : event.type === "final" ? "✓" : "◷"}</span><span class="timeline-copy"><strong>${esc(scorer)}</strong><small>${esc(detail)}</small></span><span class="timeline-score">${esc(eventScore || (goal ? "GOAL" : ""))}</span></div>`;
+      }).join("");
+    }
+    function lineupHtml(snapshot) {
+      const fixture = snapshot.fixture;
+      const ids = fixtureSquadIds(fixture);
+      const players = ids.map(id => playerMap(snapshot).get(String(id))).filter(Boolean);
+      if (!players.length) return `<div class="timeline-empty">The selected squad will appear here as soon as it is saved for this match.</div>`;
+      const formation = formationSlots(fixture.formationShape || DEFAULT_FORMATION);
+      const squadIds = new Set(players.map(player => String(player.id)));
+      const used = new Set();
+      let pitchPlayers = formation.slots.map((slot, index) => {
+        const id = String((fixture.lineupPositions || [])[index] || "");
+        if (!id || !squadIds.has(id) || used.has(id)) return null;
+        used.add(id);
+        return playerMap(snapshot).get(id) || null;
+      });
+      if (!pitchPlayers.some(Boolean)) {
+        pitchPlayers = formation.slots.map((slot, index) => players[index] || null);
+        pitchPlayers.filter(Boolean).forEach(player => used.add(String(player.id)));
+      }
+      const bench = players.filter(player => !used.has(String(player.id)));
+      const tiles = formation.slots.map((slot, index) => {
+        const player = pitchPlayers[index];
+        return `<span class="pitch-player ${slot.compact ? "compact" : ""} ${player ? "" : "empty"}" style="--x:${slot.x};--y:${slot.y}"><span class="pitch-shirt">${player ? esc(player.squadNumber) : esc(slot.code)}</span>${player ? `<span class="pitch-name"><small>${esc(slot.code)}</small>${esc(player.name)}</span>` : ""}</span>`;
+      }).join("");
+      return `<div class="pitch"><span class="pitch-box top"></span><span class="pitch-box bottom"></span><span class="pitch-goal top"></span><span class="pitch-goal bottom"></span><span class="centre-dot"></span>${tiles}</div>${bench.length ? `<div class="bench"><div class="bench-head"><span>Additional squad members</span><span>${bench.length}</span></div><div class="bench-grid">${bench.map(player => `<span class="bench-player"><span>${esc(player.squadNumber)}</span><span>${esc(player.name)}</span></span>`).join("")}</div></div>` : ""}`;
+    }
+    function latestMoment(snapshot) {
+      const event = eventList(snapshot).slice().sort((a,b) => Number(b.createdAt || 0) - Number(a.createdAt || 0))[0];
+      if (!event) return phase(snapshot.fixture) === "ready" ? "Waiting for the manager to start the match." : "The live match feed is connected.";
+      if (event.type === "goal") return event.side === "opponent" ? `${snapshot.fixture.opponent || "Opposition"} scored.` : `${playerName(event.playerId, snapshot)} scored for Eastbourne United.`;
+      return event.label || phaseLabel(snapshot.fixture);
+    }
+    function render() {
+      const snapshot = state.current || currentSnapshot();
+      if (!snapshot?.fixture) {
+        $("app").innerHTML = `<section class="no-match"><div><div class="loading-ball">📡</div><h1>No match is available</h1><p>This page is live and waiting. It will switch automatically as soon as a fixture is available or the manager starts the match.</p></div></section>`;
+        return;
+      }
+      const fixture = snapshot.fixture;
+      const sides = sideData(snapshot);
+      const currentPhase = phase(fixture);
+      const goalEvents = eventList(snapshot).filter(event => event.type === "goal");
+      const uniqueScorers = new Set(goalEvents.filter(event => event.side !== "opponent" && event.playerId).map(event => String(event.playerId))).size;
+      const squadSize = fixtureSquadIds(fixture).length;
+      const signature = JSON.stringify([fixture.id, fixture.ourScore, fixture.opponentScore, currentPhase, eventList(snapshot).length, fixture.formationShape, fixtureSquadIds(fixture), fixture.lineupPositions, snapshot.players]);
+      if (signature === state.renderSignature) return;
+      state.renderSignature = signature;
+      $("app").innerHTML = `<section class="score-hero">
+        <div class="match-meta"><span class="meta-chip ${isActive(fixture) && !["full-time"].includes(currentPhase) ? "live" : ""}">${esc(phaseLabel(fixture))}</span><span class="meta-chip">${esc(fixture.competition || "Fixture")}</span><span class="meta-chip">${esc(dateLabel(fixture.date))}</span></div>
+        <div class="scoreboard">
+          <div class="score-team">${crestHtml(sides.left)}<span class="team-name">${esc(sides.left.name)}</span><span class="team-home-away">Home</span></div>
+          <div class="score-centre"><span class="score-digits"><span>${sides.left.score}</span><i>–</i><span>${sides.right.score}</span></span><span class="match-clock" id="matchClock">${clockLabel(fixture)}</span><span class="clock-caption">Match time</span></div>
+          <div class="score-team">${crestHtml(sides.right)}<span class="team-name">${esc(sides.right.name)}</span><span class="team-home-away">Away</span></div>
+        </div>
+        <div class="latest-moment"><strong>Latest:</strong> ${esc(latestMoment(snapshot))}</div>
+        <div class="match-facts"><span class="match-fact"><span>Kick-off</span><strong>${esc(timeLabel(fixture.kickOffTime))}</strong></span><span class="match-fact"><span>Venue</span><strong>${esc(fixture.venue || "TBC")}</strong></span><span class="match-fact"><span>Squad</span><strong>${squadSize || "—"}</strong></span><span class="match-fact"><span>EU scorers</span><strong>${uniqueScorers}</strong></span></div>
+      </section>
+      <section class="scorer-strip"><div class="section-label"><span>Goal scorers</span><span>${goalEvents.length} match goal${goalEvents.length === 1 ? "" : "s"}</span></div><div class="scorer-list">${scorerHtml(snapshot)}</div></section>
+      <div class="content-grid">
+        <section class="live-card timeline-card"><div class="card-head"><div><h2>Live match activity</h2><p>New events appear automatically—no refresh required.</p></div><span class="card-count">${eventList(snapshot).length}</span></div><div class="timeline">${timelineHtml(snapshot)}</div><p class="notification-note">Goal alerts work while this page is open. On supported phones, add the page to your home screen for the best notification experience.</p></section>
+        <section class="live-card lineup"><div class="card-head"><div><h2>Eastbourne United squad</h2><p>${esc(parseFormation(fixture.formationShape).shape)} formation · Premier League-style match lineup</p></div><span class="card-count">${squadSize || 0}</span></div>${lineupHtml(snapshot)}</section>
+      </div>`;
+    }
+    function processCurrent() {
+      const next = currentSnapshot();
+      if (!next?.fixture) { state.current = next; render(); return; }
+      const nextEvents = eventList(next);
+      const nextKeys = new Set(nextEvents.map(eventKey));
+      const fixtureChanged = !state.current || String(state.current.fixtureId) !== String(next.fixtureId);
+      if (!state.initialised || fixtureChanged) {
+        state.knownEvents = nextKeys;
+        state.initialised = true;
+      } else {
+        const newGoals = nextEvents.filter(event => event.type === "goal" && !state.knownEvents.has(eventKey(event))).sort((a,b) => Number(a.createdAt || 0) - Number(b.createdAt || 0));
+        newGoals.forEach((event, index) => setTimeout(() => announceGoal(event, next), index * 450));
+        nextKeys.forEach(key => state.knownEvents.add(key));
+      }
+      state.current = next;
+      state.lastUpdateAt = Date.now();
+      state.renderSignature = "";
+      render();
+      updateConnection();
+    }
+    function announceGoal(event, snapshot) {
+      const opponent = event.side === "opponent";
+      const scorer = opponent ? (snapshot.fixture.opponent || "Opposition") : playerName(event.playerId, snapshot);
+      const visibleScore = scoreAfter(event, snapshot) || `${sideData(snapshot).left.score}–${sideData(snapshot).right.score}`;
+      const root = $("goalCelebration");
+      root.innerHTML = `<div class="goal-celebration"><div class="goal-card ${opponent ? "opponent" : ""}"><div class="goal-word">Goal</div><div class="goal-scorer">${esc(opponent ? `${scorer} scored` : scorer)}</div><div class="goal-score">${esc(visibleScore)} · ${esc(event.minute || "Live")}</div></div></div>`;
+      if (navigator.vibrate) navigator.vibrate([90,45,130]);
+      clearTimeout(window.goalCelebrationTimer);
+      window.goalCelebrationTimer = setTimeout(() => {
+        root.firstElementChild?.classList.add("hide");
+        setTimeout(() => { root.innerHTML = ""; }, 310);
+      }, 3300);
+      if (state.notificationsEnabled) sendGoalNotification(event, snapshot);
+    }
+    async function sendGoalNotification(event, snapshot) {
+      if (!("Notification" in window) || Notification.permission !== "granted") return;
+      const opponent = event.side === "opponent";
+      const scorer = opponent ? (snapshot.fixture.opponent || "Opposition") : playerName(event.playerId, snapshot);
+      const sides = sideData(snapshot);
+      const body = opponent ? `${scorer} scored · ${sides.left.name} ${sides.left.score}–${sides.right.score} ${sides.right.name}` : `${scorer} scored for Eastbourne United · ${sides.left.name} ${sides.left.score}–${sides.right.score} ${sides.right.name}`;
+      const options = { body, icon: "assets/euyfc-live-192.png", badge: "assets/euyfc-live-192.png", tag: `goal-${eventKey(event)}`, renotify: true, vibrate: [100,50,150], data: { url: new URL("./live-score.html", location.href).href } };
+      try {
+        if ("serviceWorker" in navigator) {
+          const registration = await navigator.serviceWorker.ready;
+          await registration.showNotification(opponent ? "Goal update" : `GOAL · ${scorer}`, options);
+        } else new Notification(opponent ? "Goal update" : `GOAL · ${scorer}`, options);
+      } catch (error) { console.warn("Goal notification failed", error); }
+    }
+    async function enableNotifications() {
+      if (!("Notification" in window)) { toast("This browser does not support match notifications."); return; }
+      try {
+        const permission = await Notification.requestPermission();
+        state.notificationsEnabled = permission === "granted";
+        localStorage.setItem("liveScoreNotifications", state.notificationsEnabled ? "1" : "0");
+        updateNotificationButton();
+        if (state.notificationsEnabled) {
+          toast("Goal notifications are on for this device.");
+          if ("serviceWorker" in navigator) {
+            const registration = await navigator.serviceWorker.ready;
+            await registration.showNotification("EUYFC live alerts are on", { body: "You will be notified when a new goal reaches this live page.", icon: "assets/euyfc-live-192.png", tag: "live-alerts-enabled", data: { url: location.href } });
+          }
+        } else toast("Notifications were not allowed. You can change this in browser settings.");
+      } catch (error) { toast(`Notifications could not be enabled: ${error.message}`); }
+    }
+    function updateNotificationButton() {
+      const button = $("notifyButton");
+      button.classList.toggle("notifications-on", state.notificationsEnabled);
+      button.textContent = state.notificationsEnabled ? "🔔 Alerts on" : "🔔 Alerts";
+    }
+    async function sharePage() {
+      const data = { title: "EUYFC Live Score", text: "Follow the Eastbourne United U13s match live.", url: location.href };
+      try {
+        if (navigator.share) await navigator.share(data);
+        else if (navigator.clipboard) { await navigator.clipboard.writeText(location.href); toast("Live score link copied."); }
+      } catch (error) { if (error.name !== "AbortError") toast("The live score link could not be shared."); }
+    }
+    function toast(message) {
+      const element = $("toast");
+      element.textContent = message;
+      element.classList.add("show");
+      clearTimeout(window.liveToastTimer);
+      window.liveToastTimer = setTimeout(() => element.classList.remove("show"), 2600);
+    }
+    function updateConnection(mode) {
+      const strip = $("connectionStrip");
+      const text = $("connectionText");
+      if (!navigator.onLine) { strip.className = "connection-strip offline"; text.textContent = "Offline · reconnecting to the live match"; return; }
+      if (mode === "connecting" || !state.streamConnected) { strip.className = "connection-strip connecting"; text.textContent = "Reconnecting · automatic fallback updates are active"; return; }
+      strip.className = "connection-strip";
+      text.textContent = `Live connection · updated ${new Date(state.lastUpdateAt || Date.now()).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}`;
+    }
+    async function getJson(path, fallback = null) {
+      const response = await fetch(`${ROOT}/${path}.json?ts=${Date.now()}`, { cache: "no-store", headers: { "Cache-Control": "no-cache" } });
+      if (!response.ok) throw new Error(`${path} returned ${response.status}`);
+      const value = await response.json();
+      return value == null ? fallback : value;
+    }
+    async function refreshLive() {
+      try { state.live = parseLive(await getJson("live_match", null)); processCurrent(); } catch (error) { console.warn("Live refresh failed", error); updateConnection("connecting"); }
+    }
+    function handleStreamEvent(event) {
+      try {
+        const message = JSON.parse(event.data || "{}");
+        if (message.path === "/") state.live = parseLive(message.data);
+        else { refreshLive(); return; }
+        state.streamConnected = true;
+        processCurrent();
+      } catch (error) { console.warn("Live event could not be read", error); refreshLive(); }
+    }
+    function connectStream() {
+      if (!("EventSource" in window)) { updateConnection("connecting"); return; }
+      if (state.stream) state.stream.close();
+      const stream = new EventSource(`${ROOT}/live_match.json?stream=${Date.now()}`);
+      state.stream = stream;
+      stream.addEventListener("open", () => { state.streamConnected = true; updateConnection(); });
+      stream.addEventListener("put", handleStreamEvent);
+      stream.addEventListener("patch", () => refreshLive());
+      stream.addEventListener("cancel", () => { state.streamConnected = false; updateConnection("connecting"); });
+      stream.addEventListener("auth_revoked", () => { state.streamConnected = false; updateConnection("connecting"); });
+      stream.onerror = () => { state.streamConnected = false; updateConnection("connecting"); };
+    }
+    async function initialise() {
+      updateNotificationButton();
+      if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register("./sw.js?v=26", { updateViaCache: "none" }).then(registration => registration.update()).catch(error => console.warn("Service worker registration failed", error));
+      const liveResult = await Promise.allSettled([getJson("live_match", null)]);
+      if (liveResult[0].status === "fulfilled") state.live = parseLive(liveResult[0].value);
+      state.streamConnected = false;
+      processCurrent();
+      connectStream();
+      updateConnection("connecting");
+    }
+    $("notifyButton").onclick = enableNotifications;
+    $("shareButton").onclick = sharePage;
+    $("goalCelebration").onclick = () => { $("goalCelebration").innerHTML = ""; };
+    window.addEventListener("online", () => { connectStream(); refreshLive(); });
+    window.addEventListener("offline", () => updateConnection());
+    document.addEventListener("visibilitychange", () => { if (!document.hidden) refreshLive(); });
+    setInterval(() => { const clock = $("matchClock"); if (clock && state.current?.fixture) clock.textContent = clockLabel(state.current.fixture); }, 250);
+    setInterval(() => { if (!state.streamConnected) refreshLive(); }, 2500);
+    initialise();
+  </script>
+</body>
+</html>

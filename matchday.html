@@ -1,0 +1,1308 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+  <meta name="theme-color" content="#06110b">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="EUYFC Live">
+  <meta http-equiv="Cache-Control" content="no-store, max-age=0">
+  <meta http-equiv="Pragma" content="no-cache">
+  <title>EUYFC Live Match Recorder</title>
+  <link rel="manifest" href="matchday.webmanifest?v=23">
+  <link rel="icon" href="assets/icon.svg">
+  <link rel="apple-touch-icon" sizes="192x192" href="assets/euyfc-live-192.png">
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #030806;
+      --panel: #0b1510;
+      --panel-2: #101d16;
+      --line: rgba(255,255,255,.11);
+      --ink: #f4f8f5;
+      --muted: #a7b5ac;
+      --green: #9cff4a;
+      --green-2: #72df32;
+      --yellow: #ffd318;
+      --red: #ff575f;
+      --safe-top: env(safe-area-inset-top, 0px);
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html { min-height: 100%; background: var(--bg); }
+    body {
+      margin: 0;
+      min-height: 100%;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% -8%, rgba(156,255,74,.15), transparent 30%),
+        radial-gradient(circle at 98% 36%, rgba(255,211,24,.07), transparent 28%),
+        linear-gradient(160deg, #07130c, var(--bg) 52%);
+      font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-weight: 400;
+    }
+    button, input, select { font: inherit; }
+    button { touch-action: manipulation; }
+    button:focus-visible, input:focus-visible, select:focus-visible { outline: 3px solid rgba(156,255,74,.42); outline-offset: 2px; }
+    .hidden { display: none !important; }
+    .login {
+      min-height: 100dvh;
+      display: grid;
+      place-items: center;
+      padding: calc(30px + var(--safe-top)) 20px calc(30px + var(--safe-bottom));
+    }
+    .login-card {
+      width: min(100%, 440px);
+      padding: 28px;
+      border: 1px solid rgba(156,255,74,.22);
+      border-radius: 28px;
+      background: linear-gradient(150deg, rgba(17,34,24,.98), rgba(5,13,8,.98));
+      box-shadow: 0 35px 80px rgba(0,0,0,.48);
+    }
+    .login-brand { display: flex; align-items: center; gap: 15px; margin-bottom: 34px; }
+    .login-brand img { width: 64px; height: 64px; border-radius: 50%; object-fit: cover; background: #fff; border: 3px solid #fff; }
+    .login-brand span, .login-brand small { display: block; }
+    .login-brand span { font-size: 18px; font-weight: 600; }
+    .login-brand small { margin-top: 4px; color: var(--green); font-size: 11px; font-weight: 600; letter-spacing: 2px; }
+    .eyebrow { color: var(--green); font-size: 11px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; }
+    h1, h2, h3, p { margin-top: 0; }
+    .login-card h1 { margin: 10px 0 10px; font-size: 34px; line-height: 1.05; font-weight: 600; letter-spacing: -1.4px; }
+    .login-card > p { margin-bottom: 26px; color: var(--muted); line-height: 1.5; }
+    label { display: block; margin-top: 15px; color: #dce5df; font-size: 13px; }
+    input, select {
+      width: 100%;
+      min-height: 54px;
+      margin-top: 7px;
+      padding: 0 15px;
+      border: 1px solid rgba(255,255,255,.14);
+      border-radius: 14px;
+      background: #030a06;
+      color: var(--ink);
+    }
+    .primary, .secondary, .danger, .ghost {
+      min-height: 54px;
+      border: 0;
+      border-radius: 15px;
+      padding: 0 18px;
+      color: #061006;
+      background: var(--green);
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .primary:disabled, .secondary:disabled, .danger:disabled, .ghost:disabled { opacity: .46; cursor: wait; }
+    .secondary { color: var(--ink); background: #17231c; border: 1px solid rgba(255,255,255,.12); }
+    .danger { color: #fff; background: #b9333a; }
+    .ghost { color: var(--muted); background: transparent; border: 1px solid rgba(255,255,255,.12); }
+    .login-card .primary { width: 100%; margin-top: 24px; }
+    .login-error { min-height: 20px; margin: 13px 0 0; color: #ff858a; font-size: 13px; }
+    .console { min-height: 100dvh; padding-bottom: calc(112px + var(--safe-bottom)); }
+    .topbar {
+      position: sticky;
+      z-index: 20;
+      top: 0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-height: calc(78px + var(--safe-top));
+      padding: calc(12px + var(--safe-top)) 18px 12px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(3,9,6,.9);
+      backdrop-filter: blur(18px);
+    }
+    .topbar img { width: 46px; height: 46px; border-radius: 50%; object-fit: cover; background: white; border: 2px solid white; }
+    .topbar-copy { min-width: 0; flex: 1; }
+    .topbar-copy strong, .topbar-copy span { display: block; }
+    .topbar-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; font-weight: 600; }
+    .topbar-copy span { margin-top: 3px; color: var(--green); font-size: 10px; font-weight: 600; letter-spacing: 1.6px; }
+    .icon-button { width: 46px; height: 46px; padding: 0; border: 1px solid var(--line); border-radius: 14px; color: var(--ink); background: #111a15; font-size: 20px; cursor: pointer; }
+    .install-button { width: auto; min-width: 76px; padding: 0 11px; color: #071007; background: var(--green); border-color: transparent; font-size: 11px; }
+    .page { width: min(100%, 920px); margin: 0 auto; padding: 22px 16px 30px; }
+    .connection {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 32px;
+      margin-bottom: 14px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .connection::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 12px rgba(156,255,74,.65); }
+    .connection.saving::before { background: var(--yellow); box-shadow: none; animation: pulse 1s infinite; }
+    .connection.error { color: #ff858a; }
+    .connection.error::before { background: var(--red); box-shadow: none; }
+    @keyframes pulse { 50% { opacity: .3; } }
+    .fixture-picker { margin-bottom: 14px; }
+    .fixture-picker label { margin: 0; color: var(--muted); }
+    .fixture-picker select { min-height: 58px; font-size: 16px; }
+    .match-card {
+      overflow: hidden;
+      border: 1px solid rgba(156,255,74,.25);
+      border-radius: 28px;
+      background: linear-gradient(155deg, rgba(18,39,25,.98), rgba(4,12,7,.98));
+      box-shadow: 0 24px 60px rgba(0,0,0,.34);
+    }
+    .match-head { padding: 21px 20px 17px; border-bottom: 1px solid rgba(255,255,255,.09); }
+    .match-meta { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .match-meta span:first-child { color: var(--green); font-size: 11px; font-weight: 600; letter-spacing: 1.7px; text-transform: uppercase; }
+    .status-pill { padding: 7px 11px; border-radius: 999px; color: #061006; background: #d2ddd5; font-size: 10px; font-weight: 600; letter-spacing: 1.2px; }
+    .status-pill.live { background: var(--green); }
+    .status-pill.final { color: #07100a; background: var(--yellow); }
+    .match-head h1 { margin: 13px 0 7px; font-size: clamp(25px, 7vw, 38px); line-height: 1.08; font-weight: 600; letter-spacing: -1px; }
+    .match-head p { margin: 0; color: var(--muted); font-size: 14px; }
+    .scoreboard { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 10px; padding: 26px 18px 24px; }
+    .team { min-width: 0; text-align: center; }
+    .team img { width: 70px; height: 70px; border-radius: 50%; object-fit: cover; background: #fff; border: 3px solid #fff; box-shadow: 0 0 0 4px rgba(156,255,74,.14); }
+    .team.opponent img { border-color: rgba(255,255,255,.68); box-shadow: 0 0 0 4px rgba(255,211,24,.12); }
+    .team strong { display: block; margin-top: 10px; font-size: 13px; font-weight: 550; line-height: 1.25; }
+    .score { display: flex; align-items: center; gap: 10px; }
+    .score strong { min-width: 48px; font-size: 48px; line-height: 1; font-weight: 600; text-align: center; font-variant-numeric: tabular-nums; }
+    .score span { color: var(--muted); font-size: 22px; }
+    .match-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 0 18px 20px; }
+    .match-actions .primary, .match-actions .danger, .match-actions .secondary { width: 100%; }
+    .match-actions .wide { grid-column: 1 / -1; }
+    .match-clock-card { overflow: hidden; background: linear-gradient(145deg, rgba(20,42,27,.97), rgba(8,19,12,.97)); }
+    .match-clock-top { display: grid; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: 18px; }
+    .match-clock-copy h2 { margin: 0; font-size: 21px; font-weight: 600; }
+    .match-clock-copy p { margin: 5px 0 0; color: var(--muted); font-size: 13px; line-height: 1.4; }
+    .match-clock { min-width: 108px; color: var(--green); font-size: 34px; line-height: 1; font-weight: 550; letter-spacing: 1px; text-align: right; font-variant-numeric: tabular-nums; }
+    .match-clock-label { margin-top: 6px; color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .08em; text-align: right; text-transform: uppercase; }
+    .phase-controls { display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 8px; margin-top: 18px; }
+    .phase-button { min-height: 52px; padding: 8px 10px; border: 1px solid rgba(255,255,255,.13); border-radius: 14px; color: #b6c4ba; background: rgba(255,255,255,.045); font: inherit; font-size: 12px; line-height: 1.2; cursor: pointer; }
+    .phase-button.active { border-color: rgba(156,255,74,.58); color: #071007; background: var(--green); box-shadow: 0 8px 22px rgba(156,255,74,.13); }
+    .phase-button.done { border-color: rgba(156,255,74,.2); color: var(--green); background: rgba(156,255,74,.075); }
+    .phase-button:disabled { cursor: not-allowed; opacity: .58; }
+    .section-card { margin-top: 16px; padding: 19px; border: 1px solid var(--line); border-radius: 23px; background: rgba(12,23,17,.92); }
+    .section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; margin-bottom: 16px; }
+    .section-heading h2 { margin: 0; font-size: 21px; font-weight: 600; letter-spacing: -.4px; }
+    .section-heading p { margin: 5px 0 0; color: var(--muted); font-size: 13px; line-height: 1.4; }
+    .section-heading > span { flex: 0 0 auto; min-width: 36px; padding: 8px 10px; border-radius: 12px; color: var(--green); background: rgba(156,255,74,.09); font-size: 13px; text-align: center; }
+    .quick-goals { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .quick-goal {
+      min-height: 74px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 12px 14px;
+      border: 1px solid rgba(255,255,255,.11);
+      border-radius: 17px;
+      color: var(--ink);
+      background: #111d16;
+      text-align: left;
+    }
+    .quick-goal span, .quick-goal small { display: block; }
+    .quick-goal span { font-size: 15px; font-weight: 550; }
+    .quick-goal small { margin-top: 4px; color: var(--muted); font-size: 11px; }
+    .quick-goal-actions { display: flex; flex: 0 0 auto; gap: 7px; }
+    .quick-score-button { display: grid; place-items: center; width: 43px; height: 43px; padding: 0; border: 0; border-radius: 13px; color: #071007; background: var(--green); font-size: 24px; font-weight: 500; cursor: pointer; }
+    .quick-score-button.minus { color: var(--ink); background: #29352e; }
+    .quick-goal.opponent .quick-score-button:not(.minus) { background: var(--yellow); }
+    .scorer-list { display: grid; gap: 10px; }
+    .scorer {
+      display: grid;
+      grid-template-columns: 48px minmax(0,1fr) auto;
+      align-items: center;
+      gap: 11px;
+      min-height: 76px;
+      padding: 10px;
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 18px;
+      background: #0f1a14;
+    }
+    .scorer.not-playing { opacity: .72; background: rgba(255,255,255,.025); }
+    .shirt { display: grid; place-items: center; width: 46px; height: 48px; color: #071007; background: linear-gradient(160deg,#dcffbd,var(--green)); clip-path: polygon(20% 7%,38% 0,50% 11%,62% 0,80% 7%,100% 28%,82% 43%,78% 100%,22% 100%,18% 43%,0 28%); font-size: 15px; font-weight: 550; }
+    .scorer-name { min-width: 0; }
+    .scorer-name strong, .scorer-name span { display: block; }
+    .scorer-name strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 16px; font-weight: 550; }
+    .scorer-name span { margin-top: 4px; color: var(--muted); font-size: 12px; }
+    .player-toggle { margin-top: 8px; min-height: 34px; padding: 0 11px; border: 1px solid rgba(255,255,255,.14); border-radius: 999px; color: #c4d1c8; background: rgba(255,255,255,.04); font: inherit; font-size: 12px; cursor: pointer; }
+    .player-toggle.playing { border-color: rgba(156,255,74,.42); color: var(--green); background: rgba(156,255,74,.1); }
+    .player-toggle:disabled { opacity: .5; cursor: not-allowed; }
+    .squad-change-drawer { margin-top: 13px; border: 1px solid rgba(255,211,24,.18); border-radius: 16px; background: rgba(255,211,24,.035); }
+    .squad-change-drawer summary { padding: 14px 16px; color: var(--yellow); font-size: 13px; font-weight: 700; cursor: pointer; }
+    .squad-change-list { display: grid; gap: 8px; padding: 0 12px 12px; }
+    .squad-change-row { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 10px; align-items: center; padding: 10px 11px; border: 1px solid rgba(255,255,255,.08); border-radius: 13px; background: rgba(0,0,0,.2); }
+    .squad-change-row strong, .squad-change-row small { display: block; }
+    .squad-change-row small { margin-top: 3px; color: var(--muted); }
+    .scorer-controls { display: flex; align-items: center; gap: 6px; }
+    .scorer-controls button { display: grid; place-items: center; min-width: 43px; height: 46px; padding: 0 10px; border: 0; border-radius: 13px; cursor: pointer; }
+    .remove-goal { color: var(--ink); background: #27332c; font-size: 22px; }
+    .add-goal { grid-template-columns: auto auto; gap: 5px; color: #071007; background: var(--green); font-size: 22px; }
+    .add-goal small { font-size: 9px; letter-spacing: .5px; text-transform: uppercase; }
+    .goal-total { min-width: 24px; color: #fff; font-size: 15px; text-align: center; font-variant-numeric: tabular-nums; }
+    .save-note { display: inline-flex; align-items: center; justify-content: center; min-height: 30px; padding: 0 10px; border: 1px solid rgba(156,255,74,.22); border-radius: 999px; color: var(--green); background: rgba(156,255,74,.08); font-size: 11px; white-space: nowrap; }
+    .save-note.saving { border-color: rgba(255,217,56,.35); color: var(--yellow); background: rgba(255,217,56,.08); }
+    .scorer-controls button:disabled, .quick-score-button:disabled { opacity: .4; cursor: not-allowed; }
+    .events { display: grid; gap: 9px; }
+    .event { display: flex; gap: 12px; align-items: center; padding: 11px 0; border-bottom: 1px solid rgba(255,255,255,.08); }
+    .event:last-child { border-bottom: 0; }
+    .event-icon { display: grid; flex: 0 0 auto; place-items: center; width: 38px; height: 38px; border-radius: 12px; background: rgba(156,255,74,.1); font-size: 18px; }
+    .event strong, .event span { display: block; }
+    .event strong { font-size: 14px; font-weight: 550; }
+    .event span { margin-top: 3px; color: var(--muted); font-size: 11px; }
+    .matchday-photo-upload { position: relative; display: grid; place-items: center; min-height: 92px; padding: 18px; border: 1px dashed rgba(156,255,74,.38); border-radius: 16px; color: #071007; background: linear-gradient(135deg, var(--green), #c8ff92); text-align: center; cursor: pointer; }
+    .matchday-photo-upload input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+    .matchday-photo-upload strong, .matchday-photo-upload span { display: block; }
+    .matchday-photo-upload strong { font-size: 15px; }
+    .matchday-photo-upload span { margin-top: 4px; font-size: 11px; opacity: .72; }
+    .matchday-photo-status { min-height: 18px; margin-top: 9px; color: var(--muted); font-size: 11px; }
+    .matchday-photo-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 8px; margin-top: 10px; }
+    .matchday-photo { position: relative; overflow: hidden; border-radius: 13px; background: #050806; }
+    .matchday-photo img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; }
+    .matchday-photo button { position: absolute; top: 5px; right: 5px; width: 31px; height: 31px; padding: 0; border: 1px solid rgba(255,255,255,.2); border-radius: 9px; color: #fff; background: rgba(135,19,25,.9); font-size: 18px; }
+    .empty { padding: 20px; border: 1px dashed rgba(255,255,255,.16); border-radius: 16px; color: var(--muted); text-align: center; line-height: 1.45; }
+    .bottom-save {
+      position: fixed;
+      z-index: 24;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      padding: 12px 16px calc(12px + var(--safe-bottom));
+      border-top: 1px solid var(--line);
+      background: rgba(3,9,6,.92);
+      backdrop-filter: blur(18px);
+    }
+    .bottom-save-inner { width: min(100%, 888px); margin: 0 auto; display: grid; grid-template-columns: auto auto 1fr; gap: 10px; }
+    .bottom-save .primary { width: 100%; }
+    .dialog {
+      position: fixed;
+      z-index: 50;
+      inset: 0;
+      display: grid;
+      place-items: end center;
+      padding: 18px 16px calc(18px + var(--safe-bottom));
+      background: rgba(0,0,0,.72);
+      backdrop-filter: blur(8px);
+    }
+    .dialog-card { width: min(100%, 500px); padding: 24px; border: 1px solid rgba(156,255,74,.24); border-radius: 26px; background: #0c1711; box-shadow: 0 30px 80px rgba(0,0,0,.55); }
+    .dialog-card h2 { margin-bottom: 8px; font-size: 26px; font-weight: 600; }
+    .dialog-card p { color: var(--muted); line-height: 1.5; }
+    .dialog-score { margin: 22px 0; color: var(--green); font-size: 42px; font-weight: 600; text-align: center; }
+    .dialog-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .install-summary { margin: 18px 0 14px; padding: 14px; border: 1px solid rgba(255,255,255,.1); border-radius: 16px; background: rgba(0,0,0,.2); }
+    .install-summary strong, .install-summary span { display: block; }
+    .install-summary strong { color: #fff; font-size: 14px; }
+    .install-summary span { margin-top: 6px; color: var(--muted); font-size: 12px; line-height: 1.45; }
+    .install-checks { display: grid; gap: 7px; margin: 14px 0 18px; }
+    .install-check { display: grid; grid-template-columns: 28px minmax(0,1fr); gap: 9px; align-items: center; min-height: 43px; padding: 8px 10px; border: 1px solid rgba(255,255,255,.085); border-radius: 12px; background: rgba(255,255,255,.025); color: #dce7df; font-size: 12px; }
+    .install-check i { width: 26px; height: 26px; display: grid; place-items: center; border-radius: 9px; background: rgba(156,255,74,.12); color: var(--green); font-style: normal; }
+    .install-check.fail i { background: rgba(255,87,95,.12); color: #ff7f85; }
+    .install-check.wait i { background: rgba(255,211,24,.12); color: var(--yellow); }
+    .install-address { overflow: hidden; margin: 0 0 14px; color: #728078; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+    @media (min-width: 720px) {
+      .page { padding-top: 30px; }
+      .fixture-picker { width: 58%; }
+      .content-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+      .content-grid .section-card { margin-top: 16px; }
+      .quick-goals { grid-template-columns: 1fr 1fr; }
+      .dialog { place-items: center; }
+    }
+    @media (max-width: 390px) {
+      .page { padding-left: 11px; padding-right: 11px; }
+      .match-head, .section-card { padding-left: 15px; padding-right: 15px; }
+      .scoreboard { padding-left: 11px; padding-right: 11px; }
+      .team img { width: 60px; height: 60px; }
+      .score strong { min-width: 39px; font-size: 42px; }
+      .phase-controls { grid-template-columns: 1fr 1fr; }
+      .match-clock { min-width: 90px; font-size: 30px; }
+      .quick-goals { grid-template-columns: 1fr; }
+      .scorer { grid-template-columns: 44px minmax(0,1fr) auto; gap: 8px; }
+      .scorer-controls button { min-width: 38px; height: 43px; padding: 0 8px; }
+    }
+  </style>
+</head>
+<body>
+  <section class="login" id="loginScreen">
+    <form class="login-card" id="loginForm">
+      <div class="login-brand"><img src="assets/badgeeu.jfif" onerror="this.onerror=null;this.src='assets/icon.svg'" alt=""><div><span>Eastbourne United U13s</span><small>MANAGER · MATCHDAY</small></div></div>
+      <span class="eyebrow">Secure access</span>
+      <h1>EUYFC Live Match Recorder</h1>
+      <p>Log in as super admin or with a saved manager name and PIN for full matchday controls.</p>
+      <label>Username or manager name<input id="username" autocomplete="username" autocapitalize="none" autofocus></label>
+      <label>Password or manager PIN<input id="password" type="password" autocomplete="current-password"></label>
+      <button class="primary" type="submit">Open matchday console</button>
+      <p class="login-error" id="loginError" role="alert"></p>
+    </form>
+  </section>
+
+  <section class="console hidden" id="consoleScreen">
+    <header class="topbar">
+      <img src="assets/badgeeu.jfif" onerror="this.onerror=null;this.src='assets/icon.svg'" alt="">
+      <div class="topbar-copy"><strong>EUYFC Live</strong><span>MATCH RECORDER</span></div>
+      <button class="icon-button install-button" id="installButton" type="button" aria-label="Install EUYFC Live Match Recorder">Install app</button>
+      <button class="icon-button" id="refreshButton" type="button" aria-label="Reload match data">↻</button>
+      <button class="icon-button" id="logoutButton" type="button" aria-label="Log out">⎋</button>
+    </header>
+    <main class="page">
+      <div class="connection" id="connectionState">Connected to Firebase</div>
+      <div class="fixture-picker">
+        <label>Choose match<select id="fixtureSelect"></select></label>
+      </div>
+      <div id="matchContent"><div class="empty">Loading match information…</div></div>
+    </main>
+    <div class="bottom-save hidden" id="bottomBar">
+      <div class="bottom-save-inner">
+        <button class="secondary" id="managementButton" type="button" aria-label="Open full management portal">Portal</button>
+        <button class="secondary" id="liveScoreButton" type="button" aria-label="Open public live score page">Live score</button>
+        <button class="primary" id="finaliseButton" type="button">Set final score</button>
+      </div>
+    </div>
+  </section>
+  <div id="dialogRoot"></div>
+
+  <script>
+    const ROOT = "https://eastbourneu13-default-rtdb.firebaseio.com/eastbourne-united-u13";
+    const CLUB = "Eastbourne United U13s";
+    const USERNAME = "Ben";
+    const PASSWORD = "Billyisla123!";
+    const MATCH_HALF_MINUTES = 30;
+    const $ = id => document.getElementById(id);
+    const uid = () => crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    const state = { team: { players: [], fixtures: [], teamBadges: {} }, fixtureId: "", loading: false, pendingSaves: 0, saveQueue: Promise.resolve(), queueError: false, message: "Connected to Firebase", error: false };
+    const PENDING_MATCHDAY_KEY = "euyfc-pending-matchday-fixtures-v1";
+    const PENDING_MATCHDAY_FIELDS = ["id", "opponent", "date", "kickOffTime", "venue", "competition", "ourScore", "opponentScore", "completed", "playerIds", "squadOrder", "formationShape", "lineupPositions", "goalCounts", "motmPlayerId", "matchdayEvents", "matchdayStatus", "startedAt", "firstHalfStartedAt", "firstHalfElapsedMs", "halfTimeAt", "secondHalfStartedAt", "secondHalfElapsedMs", "fullTimeAt", "finalisedAt", "matchdayHalfLength", "matchdayUpdatedAt", "unassignedGoals"];
+    let deferredInstallPrompt = null;
+    let liveSnapshotQueue = Promise.resolve();
+    function cloneRecord(value) { return JSON.parse(JSON.stringify(value)); }
+    function portablePendingFixture(value) {
+      const source = value && typeof value === "object" ? value : {};
+      const copy = {};
+      PENDING_MATCHDAY_FIELDS.forEach(key => { if (source[key] !== undefined) copy[key] = cloneRecord(source[key]); });
+      return copy;
+    }
+    function pendingFixtureSignature(value) {
+      const copy = portablePendingFixture(value);
+      delete copy.matchdayUpdatedAt;
+      return JSON.stringify(copy);
+    }
+    function pendingFixtureMap() {
+      try {
+        const value = JSON.parse(localStorage.getItem(PENDING_MATCHDAY_KEY) || "{}");
+        return value && typeof value === "object" && !Array.isArray(value) ? value : {};
+      } catch { return {}; }
+    }
+    function savePendingFixture(match) {
+      if (!match?.id) return;
+      const pending = pendingFixtureMap();
+      pending[String(match.id)] = portablePendingFixture(match);
+      try { localStorage.setItem(PENDING_MATCHDAY_KEY, JSON.stringify(pending)); } catch {}
+    }
+    function clearPendingFixture(fixtureId) {
+      const pending = pendingFixtureMap();
+      delete pending[String(fixtureId)];
+      try {
+        if (Object.keys(pending).length) localStorage.setItem(PENDING_MATCHDAY_KEY, JSON.stringify(pending));
+        else localStorage.removeItem(PENDING_MATCHDAY_KEY);
+      } catch {}
+    }
+    function waitBeforeRetry(attempt) {
+      const delay = Math.min(5000, 450 * Math.pow(1.55, Math.max(0, attempt - 1)));
+      return new Promise(resolve => setTimeout(resolve, delay));
+    }
+
+    function isStandalone() {
+      return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+    }
+    function updateInstallButton() {
+      const button = $("installButton");
+      if (button) button.classList.toggle("hidden", isStandalone());
+    }
+    function installBrowserContext() {
+      const userAgent = navigator.userAgent || "";
+      const ios = /iphone|ipad|ipod/i.test(userAgent);
+      const embedded = /whatsapp|fbav|fban|instagram|; wv\)|\bwv\b/i.test(userAgent);
+      return { ios, embedded };
+    }
+    function copyCurrentAddress(button) {
+      const value = location.href;
+      const done = () => { button.textContent = "Link copied"; setTimeout(() => button.textContent = "Copy page link", 1800); };
+      if (navigator.clipboard && isSecureContext) navigator.clipboard.writeText(value).then(done).catch(() => {});
+      else {
+        const input = document.createElement("textarea");
+        input.value = value;
+        input.style.position = "fixed";
+        input.style.opacity = "0";
+        document.body.appendChild(input);
+        input.select();
+        try { document.execCommand("copy"); done(); } catch {}
+        input.remove();
+      }
+    }
+    async function installationDiagnostics() {
+      const context = installBrowserContext();
+      const localHost = /^(localhost|127\.0\.0\.1|\[::1\])$/i.test(location.hostname);
+      const secure = location.protocol === "https:" || localHost;
+      const result = { context, secure, manifest: false, icons: false, worker: false, workerMessage: "Not checked" };
+      try {
+        const manifestLink = document.querySelector('link[rel="manifest"]');
+        const response = await fetch(manifestLink.href, { cache: "no-store" });
+        if (!response.ok) throw new Error(`manifest returned ${response.status}`);
+        const manifest = await response.json();
+        result.manifest = Boolean(manifest.name && manifest.start_url && Array.isArray(manifest.icons));
+        const required = [192, 512];
+        const iconSizes = new Set((manifest.icons || []).flatMap(icon => String(icon.sizes || "").split(/\s+/)));
+        const iconResponses = await Promise.all((manifest.icons || []).filter(icon => required.some(size => iconSizes.has(`${size}x${size}`) && String(icon.sizes || "").includes(`${size}x${size}`))).map(icon => fetch(new URL(icon.src, manifestLink.href), { cache: "no-store" })));
+        result.icons = required.every(size => iconSizes.has(`${size}x${size}`)) && iconResponses.length >= 2 && iconResponses.every(iconResponse => iconResponse.ok);
+      } catch (error) {
+        result.manifestMessage = error.message;
+      }
+      if ("serviceWorker" in navigator && secure) {
+        try {
+          const registration = await navigator.serviceWorker.getRegistration("./");
+          result.worker = Boolean(registration);
+          result.workerMessage = registration ? (navigator.serviceWorker.controller ? "Active and controlling this page" : "Registered; reload once to activate") : "Not registered on this address";
+        } catch (error) {
+          result.workerMessage = error.message;
+        }
+      } else result.workerMessage = secure ? "This browser does not support app installation" : "A secure HTTPS address is required";
+      return result;
+    }
+    async function showInstallHelp() {
+      $("dialogRoot").innerHTML = `<div class="dialog" role="dialog" aria-modal="true"><div class="dialog-card"><span class="eyebrow">EUYFC Live Match Recorder</span><h2>Checking app installation…</h2><p>Checking this browser, the app files and the secure connection.</p></div></div>`;
+      const result = await installationDiagnostics();
+      if (isStandalone()) { $("dialogRoot").innerHTML = ""; return; }
+      let title = "Ready to add to your home screen";
+      let copy = result.context.ios
+        ? "Open this page in Safari, tap Share, choose Add to Home Screen, then tap Add. Apple does not show an automatic install prompt."
+        : "Open the browser menu and choose Install app or Add to Home screen. The browser controls the final installation confirmation.";
+      if (!result.secure) {
+        title = "This address cannot install an app";
+        copy = "The recorder is open as a local file or on an unsecured address. Upload these files to the live HTTPS website, then open that live matchday link on the phone.";
+      } else if (result.context.embedded) {
+        title = "Open the link in your phone browser";
+        copy = result.context.ios ? "The WhatsApp or social-media browser cannot install it. Use its menu to open this page in Safari, then use Share → Add to Home Screen." : "The WhatsApp or social-media browser cannot install it. Use its menu to open this page in Chrome, then choose Install app or Add to Home screen.";
+      } else if (!result.manifest || !result.icons || !result.worker) {
+        title = "The live website is missing an app file";
+        copy = "Upload every file from changed_files_only.zip to the same folders on the live website, refresh this page, then run this check again.";
+      }
+      const checks = [
+        [result.secure, "Secure HTTPS address", result.secure ? "Secure" : "Not secure"],
+        [!result.context.embedded, "Install-capable browser", result.context.embedded ? "Opened inside another app" : "Supported browser window"],
+        [result.manifest, "EUYFC app manifest", result.manifest ? "Found" : (result.manifestMessage || "Missing")],
+        [result.icons, "192px and 512px app icons", result.icons ? "Found" : "One or more icons missing"],
+        [result.worker, "Offline app service", result.workerMessage]
+      ];
+      $("dialogRoot").innerHTML = `<div class="dialog" role="dialog" aria-modal="true"><div class="dialog-card"><span class="eyebrow">EUYFC Live Match Recorder</span><h2>${esc(title)}</h2><div class="install-summary"><strong>What to do</strong><span>${esc(copy)}</span></div><div class="install-checks">${checks.map(([ok, label, detail]) => `<div class="install-check ${ok ? "" : "fail"}"><i>${ok ? "✓" : "!"}</i><span>${esc(label)}<small style="display:block;margin-top:3px;color:#85938a">${esc(detail)}</small></span></div>`).join("")}</div><div class="install-address">${esc(location.href)}</div><div class="dialog-actions"><button class="secondary" id="copyInstallLink" type="button">Copy page link</button><button class="primary" id="closeInstallHelp" type="button">Done</button></div></div></div>`;
+      $("copyInstallLink").onclick = event => copyCurrentAddress(event.currentTarget);
+      $("closeInstallHelp").onclick = () => $("dialogRoot").innerHTML = "";
+    }
+    async function installMatchdayApp() {
+      if (isStandalone()) return;
+      if (!deferredInstallPrompt && "serviceWorker" in navigator && /^https?:$/.test(location.protocol)) {
+        try {
+          const registration = await navigator.serviceWorker.ready;
+          await registration.update();
+          await new Promise(resolve => setTimeout(resolve, 700));
+        } catch {}
+      }
+      if (!deferredInstallPrompt) { await showInstallHelp(); return; }
+      deferredInstallPrompt.prompt();
+      const choice = await deferredInstallPrompt.userChoice;
+      deferredInstallPrompt = null;
+      updateInstallButton();
+      if (choice.outcome !== "accepted") await showInstallHelp();
+    }
+    window.addEventListener("beforeinstallprompt", event => {
+      event.preventDefault();
+      deferredInstallPrompt = event;
+      updateInstallButton();
+    });
+    window.addEventListener("appinstalled", () => { deferredInstallPrompt = null; updateInstallButton(); setConnection("EUYFC Live Match Recorder installed"); });
+
+    function esc(value) {
+      return String(value ?? "").replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char]);
+    }
+    function parseTeam(raw) {
+      let value = raw;
+      if (typeof value === "string") {
+        try { value = JSON.parse(value); } catch { value = {}; }
+      }
+      const team = value && typeof value === "object" ? value : {};
+      team.players = Array.isArray(team.players) ? team.players : [];
+      team.fixtures = Array.isArray(team.fixtures) ? team.fixtures : [];
+      team.teamBadges = team.teamBadges && typeof team.teamBadges === "object" ? team.teamBadges : {};
+      return team;
+    }
+    function parseDate(value) {
+      const text = String(value || "").trim();
+      let match = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+      if (match) return new Date(Number(match[3].length === 2 ? "20" + match[3] : match[3]), Number(match[2]) - 1, Number(match[1]), 12).getTime();
+      match = text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+      if (match) return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12).getTime();
+      const date = new Date(text);
+      return Number.isFinite(date.getTime()) ? date.getTime() : 0;
+    }
+    function displayDate(value) {
+      const timestamp = parseDate(value);
+      return timestamp ? new Intl.DateTimeFormat("en-GB", { weekday: "short", day: "numeric", month: "short", year: "numeric" }).format(timestamp) : (value || "Date TBC");
+    }
+    function fixture() { return state.team.fixtures.find(item => String(item.id) === String(state.fixtureId)); }
+    function playerMap() { return new Map(state.team.players.map(player => [String(player.id), player])); }
+    function playerName(id) { return playerMap().get(String(id))?.name || "Unknown player"; }
+    function playerNumber(id) { return playerMap().get(String(id))?.squadNumber || "–"; }
+    function idList(value) {
+      return (Array.isArray(value) ? value : String(value || "").split(/\s+/)).map(id => String(id || "").trim()).filter(Boolean);
+    }
+    function selectedSquad(match) {
+      const selected = [...new Set([...idList(match?.squadOrder), ...idList(match?.playerIds), ...idList(match?.lineupPositions)])];
+      return selected.filter(id => playerMap().has(id));
+    }
+    function allPlayerIds(match) {
+      const selected = selectedSquad(match);
+      const selectedSet = new Set(selected);
+      const all = state.team.players.map(player => String(player.id)).filter(Boolean);
+      return [...selected, ...all.filter(id => !selectedSet.has(id))];
+    }
+    function normaliseMatchPhotos(value) {
+      return (Array.isArray(value) ? value : []).map((photo, index) => typeof photo === "string" ? { id: `photo-${index}`, title: `Match photo ${index + 1}`, url: photo } : photo).filter(photo => photo && photo.url);
+    }
+    const MAX_MATCH_PHOTOS = 12;
+    function loadPhotoImage(file) {
+      return new Promise((resolve, reject) => {
+        const src = URL.createObjectURL(file);
+        const image = new Image();
+        image.onload = () => { URL.revokeObjectURL(src); resolve(image); };
+        image.onerror = () => { URL.revokeObjectURL(src); reject(new Error(`Could not open ${file.name}`)); };
+        image.src = src;
+      });
+    }
+    async function optimisePhotoFile(file) {
+      if (!file || !String(file.type || "").startsWith("image/")) throw new Error("Choose a photo file");
+      if (file.size > 20 * 1024 * 1024) throw new Error(`${file.name} is larger than 20 MB`);
+      const image = await loadPhotoImage(file);
+      const sourceWidth = Number(image.naturalWidth || image.width || 0);
+      const sourceHeight = Number(image.naturalHeight || image.height || 0);
+      const scale = Math.min(1, 1280 / Math.max(sourceWidth, sourceHeight));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(sourceWidth * scale));
+      canvas.height = Math.max(1, Math.round(sourceHeight * scale));
+      const context = canvas.getContext("2d", { alpha: false });
+      if (!context) throw new Error("Photo processing is not supported by this browser");
+      context.fillStyle = "#07100c";
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.drawImage(image, 0, 0, canvas.width, canvas.height);
+      return { id: uid(), title: String(file.name || "Match photo").replace(/\.[^.]+$/, "").replace(/[_-]+/g, " "), url: canvas.toDataURL("image/jpeg", .72) };
+    }
+    async function addMatchPhotos(files) {
+      const match = fixture();
+      const existing = normaliseMatchPhotos(match?.matchPhotos);
+      const chosen = [...(files || [])].filter(file => String(file.type || "").startsWith("image/")).slice(0, Math.max(0, MAX_MATCH_PHOTOS - existing.length));
+      if (!chosen.length) return;
+      const input = $("matchdayPhotoFiles");
+      if (input) input.disabled = true;
+      try {
+        const added = [];
+        for (let index = 0; index < chosen.length; index++) {
+          setConnection(`Preparing photo ${index + 1} of ${chosen.length}…`, "saving");
+          added.push(await optimisePhotoFile(chosen[index]));
+        }
+        runUpdate(`Adding ${added.length} match photo${added.length === 1 ? "" : "s"}`, current => {
+          const next = Object.assign({}, current);
+          next.matchPhotos = [...normaliseMatchPhotos(next.matchPhotos), ...added].slice(0, MAX_MATCH_PHOTOS);
+          return next;
+        }, `${added.length} new match photo${added.length === 1 ? "" : "s"} added against ${match.opponent}`);
+      } catch (error) {
+        setConnection(`Photo could not be added: ${error.message}`, "error");
+      } finally {
+        if (input) { input.disabled = false; input.value = ""; }
+      }
+    }
+    function removeMatchPhoto(photoId) {
+      if (!confirm("Remove this photo from the match report?")) return;
+      runUpdate("Removing match photo", current => {
+        const next = Object.assign({}, current);
+        next.matchPhotos = normaliseMatchPhotos(next.matchPhotos).filter(photo => String(photo.id) !== String(photoId));
+        return next;
+      }, `Match photo removed from ${fixture()?.opponent || "fixture"}`);
+    }
+    function teamKey(value) { return String(value || "").trim().toLowerCase().replace(/\s+/g, " "); }
+    function liveMatchPayload(match, team = state.team) {
+      const source = match && typeof match === "object" ? match : {};
+      const fixtureFields = ["id", "opponent", "date", "kickOffTime", "venue", "competition", "ourScore", "opponentScore", "completed", "playerIds", "squadOrder", "formationShape", "lineupPositions", "goalCounts", "motmPlayerId", "matchdayEvents", "matchdayStatus", "startedAt", "firstHalfStartedAt", "firstHalfElapsedMs", "halfTimeAt", "secondHalfStartedAt", "secondHalfElapsedMs", "fullTimeAt", "finalisedAt", "matchdayHalfLength", "matchdayUpdatedAt"];
+      const cleanFixture = {};
+      fixtureFields.forEach(key => { if (source[key] !== undefined) cleanFixture[key] = source[key]; });
+      const relevantIds = new Set([...idList(source.playerIds), ...idList(source.squadOrder), ...idList(source.lineupPositions), ...Object.keys(source.goalCounts || {})].filter(Boolean).map(String));
+      const players = (Array.isArray(team.players) ? team.players : []).filter(player => relevantIds.has(String(player.id))).map(player => ({ id: player.id, name: player.name, squadNumber: player.squadNumber }));
+      return {
+        fixtureId: String(source.id || ""),
+        publishedAt: Date.now(),
+        source: "matchday",
+        fixture: cleanFixture,
+        players,
+        opponentBadge: (team.teamBadges || {})[teamKey(source.opponent)] || ""
+      };
+    }
+    function publishLiveMatch(match, team = state.team) {
+      const payload = liveMatchPayload(match, team);
+      if (!payload.fixtureId) return Promise.resolve(false);
+      liveSnapshotQueue = liveSnapshotQueue.catch(() => undefined).then(async () => {
+        const response = await fetch(`${ROOT}/live_match.json`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+        if (!response.ok) throw new Error(`Live score returned ${response.status}`);
+        return true;
+      }).catch(error => { console.warn("Live score publish failed", error); return false; });
+      return liveSnapshotQueue;
+    }
+    function crestFor(match) {
+      const badges = state.team.teamBadges || {};
+      return badges[teamKey(match?.opponent)] || "assets/football-pro.png";
+    }
+    function scoreValue(value) { return Math.max(0, Number(value) >= 0 ? Number(value) : 0); }
+    const PHASE_ORDER = ["ready", "first-half", "half-time", "second-half", "full-time", "final"];
+    function matchPhase(match) {
+      if (match?.completed || match?.matchdayStatus === "final") return "final";
+      if (["first-half", "half-time", "second-half", "full-time"].includes(match?.matchdayStatus)) return match.matchdayStatus;
+      return "ready";
+    }
+    function statusFor(match) {
+      const phase = matchPhase(match);
+      return phase === "final" ? "final" : phase === "ready" ? "ready" : "live";
+    }
+    function statusLabel(match) {
+      return ({ ready: "READY", "first-half": "FIRST HALF", "half-time": "HALF TIME", "second-half": "SECOND HALF", "full-time": "FULL TIME", final: "CONFIRMED" })[matchPhase(match)];
+    }
+    function halfLength(match) { return Math.max(1, Number(match?.matchdayHalfLength || MATCH_HALF_MINUTES)); }
+    function firstHalfElapsedMs(match) {
+      const stored = Number(match?.firstHalfElapsedMs);
+      if (Number.isFinite(stored) && stored >= 0) return stored;
+      const startedAt = Number(match?.firstHalfStartedAt || match?.startedAt || 0);
+      const stoppedAt = Number(match?.halfTimeAt || 0);
+      if (startedAt && stoppedAt >= startedAt) return stoppedAt - startedAt;
+      return halfLength(match) * 60000;
+    }
+    function matchMinute(match, at = Date.now()) {
+      const phase = matchPhase(match);
+      if (phase === "first-half") {
+        const started = Number(match.firstHalfStartedAt || match.startedAt || at);
+        return `${Math.max(1, Math.floor((at - started) / 60000) + 1)}'`;
+      }
+      if (phase === "second-half") {
+        const started = Number(match.secondHalfStartedAt || at);
+        return `${Math.max(1, Math.floor((firstHalfElapsedMs(match) + Math.max(0, at - started)) / 60000) + 1)}'`;
+      }
+      return "";
+    }
+    function matchClock(match) {
+      const phase = matchPhase(match);
+      if (phase === "ready" || phase === "half-time") return `${String(halfLength(match)).padStart(2, "0")}:00`;
+      if (phase === "full-time" || phase === "final") return "00:00";
+      const firstHalf = phase === "first-half";
+      const started = Number(firstHalf ? (match.firstHalfStartedAt || match.startedAt) : match.secondHalfStartedAt);
+      const elapsed = started ? Math.max(0, Math.floor((Date.now() - started) / 1000)) : 0;
+      const remaining = Math.max(0, halfLength(match) * 60 - elapsed);
+      return `${String(Math.floor(remaining / 60)).padStart(2, "0")}:${String(remaining % 60).padStart(2, "0")}`;
+    }
+    function matchClockLabel(match) {
+      const phase = matchPhase(match);
+      if (phase === "first-half") return "First half left";
+      if (phase === "half-time") return "Second half ready";
+      if (phase === "second-half") return "Second half left";
+      if (phase === "full-time" || phase === "final") return "Match finished";
+      return "Ready to start";
+    }
+    function updateClockDisplay() {
+      const element = $("matchClock");
+      const label = $("matchClockLabel");
+      const match = fixture();
+      if (element && match) element.textContent = matchClock(match);
+      if (label && match) label.textContent = matchClockLabel(match);
+    }
+    function setConnection(message, mode = "ok") {
+      state.message = message;
+      state.error = mode === "error";
+      const element = $("connectionState");
+      if (!element) return;
+      element.textContent = message;
+      element.className = `connection ${mode === "saving" ? "saving" : mode === "error" ? "error" : ""}`;
+    }
+    async function getTeam(withEtag = false) {
+      const response = await fetch(`${ROOT}/json.json?ts=${Date.now()}`, { cache: "no-store", headers: withEtag ? { "X-Firebase-ETag": "true", "Cache-Control": "no-cache" } : { "Cache-Control": "no-cache" } });
+      if (!response.ok) throw new Error(`Database returned ${response.status}`);
+      return { team: parseTeam(await response.json()), etag: response.headers.get("etag") };
+    }
+    async function notifyApp(message, match) {
+      const marker = { id: `matchday-${Date.now()}`, updatedAt: Date.now(), source: "matchday", title: `${CLUB} matchday`, message, fixtureId: match.id, details: [message] };
+      const response = await fetch(`${ROOT}/app_push.json`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(marker) });
+      if (!response.ok) throw new Error(`App notification returned ${response.status}`);
+    }
+    async function transactionalFixtureUpdate(fixtureId, change, announcement, recoveryFixture = null) {
+      let lastError = new Error("The fixture could not be saved");
+      for (let attempt = 1; attempt <= 12; attempt++) {
+        try {
+          const snapshot = await getTeam(true);
+          const index = snapshot.team.fixtures.findIndex(item => String(item.id) === String(fixtureId));
+          if (index < 0) throw new Error("This fixture no longer exists");
+          const current = Object.assign({}, snapshot.team.fixtures[index]);
+          const next = state.queueError && recoveryFixture ? Object.assign(current, cloneRecord(recoveryFixture)) : (change(current, snapshot.team) || current);
+          next.matchdayUpdatedAt = Math.max(Date.now(), Number(recoveryFixture?.matchdayUpdatedAt || 0));
+          snapshot.team.fixtures[index] = next;
+          const headers = { "Content-Type": "application/json" };
+          if (snapshot.etag) headers["if-match"] = snapshot.etag;
+          const response = await fetch(`${ROOT}/json.json`, { method: "PUT", headers, body: JSON.stringify(JSON.stringify(snapshot.team)) });
+          if (response.status === 412) { lastError = new Error("The fixture changed elsewhere"); await waitBeforeRetry(attempt); continue; }
+          if (!response.ok) throw new Error(`Save returned ${response.status}`);
+          notifyApp(announcement, next).catch(error => console.warn(error));
+          return { fixture: next, team: snapshot.team };
+        } catch (error) {
+          lastError = error;
+          if (/no longer exists|returned 401|returned 403/i.test(String(error.message || ""))) throw error;
+          setConnection(`Connection interrupted · ${state.pendingSaves} update${state.pendingSaves === 1 ? "" : "s"} kept on this device · retry ${attempt}/12`, "error");
+          if (attempt < 12) await waitBeforeRetry(attempt);
+        }
+      }
+      throw lastError;
+    }
+    function runUpdate(label, change, announcement) {
+      if (state.loading) return;
+      const fixtureId = state.fixtureId;
+      const index = state.team.fixtures.findIndex(item => String(item.id) === String(fixtureId));
+      if (index < 0) return;
+      const optimistic = change(Object.assign({}, state.team.fixtures[index]), state.team);
+      if (!optimistic) return;
+      optimistic.matchdayUpdatedAt = Date.now();
+      state.team.fixtures[index] = optimistic;
+      const desiredFixture = cloneRecord(optimistic);
+      savePendingFixture(desiredFixture);
+      publishLiveMatch(optimistic, state.team);
+      state.pendingSaves += 1;
+      render();
+      setConnection(`${label} · saving in background`, "saving");
+      state.saveQueue = state.saveQueue.then(async () => {
+        try {
+          const saved = await transactionalFixtureUpdate(fixtureId, change, announcement, desiredFixture);
+          publishLiveMatch(saved.fixture, saved.team);
+          state.pendingSaves = Math.max(0, state.pendingSaves - 1);
+          const latestPending = pendingFixtureMap()[String(fixtureId)];
+          if (!latestPending || pendingFixtureSignature(latestPending) === pendingFixtureSignature(desiredFixture)) clearPendingFixture(fixtureId);
+          if (state.pendingSaves === 0) {
+            state.team = saved.team;
+            if (state.queueError) setConnection("Latest saved data restored after a connection error", "error");
+            else setConnection(`${label} saved · ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`);
+            state.queueError = false;
+            render();
+          } else {
+            setConnection(`${state.pendingSaves} update${state.pendingSaves === 1 ? "" : "s"} saving in background`, "saving");
+          }
+        } catch (error) {
+          state.pendingSaves = Math.max(0, state.pendingSaves - 1);
+          state.queueError = true;
+          if (state.pendingSaves === 0) {
+            setConnection(`Not sent yet: ${error.message}. The latest match is kept on this device and will retry when the connection returns.`, "error");
+            render();
+          } else {
+            setConnection(`Save problem · ${state.pendingSaves} update${state.pendingSaves === 1 ? "" : "s"} still queued`, "error");
+          }
+        }
+      });
+    }
+    function ensureLive(match) {
+      const next = Object.assign({}, match);
+      if (Number(next.ourScore) < 0) next.ourScore = 0;
+      if (Number(next.opponentScore) < 0) next.opponentScore = 0;
+      if (!next.startedAt) next.startedAt = Date.now();
+      if (matchPhase(next) === "ready") next.matchdayStatus = "first-half";
+      next.completed = false;
+      next.goalCounts = next.goalCounts && typeof next.goalCounts === "object" ? Object.assign({}, next.goalCounts) : {};
+      next.matchdayEvents = Array.isArray(next.matchdayEvents) ? [...next.matchdayEvents] : [];
+      return next;
+    }
+    function addEvent(match, event) {
+      const createdAt = Number(event?.createdAt || Date.now());
+      match.matchdayEvents.push(Object.assign({ id: `event-${createdAt}-${Math.random().toString(36).slice(2,7)}`, createdAt, minute: matchMinute(match, createdAt) }, event));
+      match.matchdayEvents = match.matchdayEvents.slice(-80);
+    }
+    function removeLatestGoalEvent(match, predicate) {
+      for (let index = match.matchdayEvents.length - 1; index >= 0; index--) {
+        const event = match.matchdayEvents[index];
+        if (event.type === "goal" && predicate(event)) {
+          match.matchdayEvents.splice(index, 1);
+          return event;
+        }
+      }
+      return null;
+    }
+    function recalculateGoalEventScores(match) {
+      const goals = match.matchdayEvents.filter(event => event && event.type === "goal");
+      const ourRecorded = goals.filter(event => event.side !== "opponent").length;
+      const opponentRecorded = goals.filter(event => event.side === "opponent").length;
+      let ours = Math.max(0, scoreValue(match.ourScore) - ourRecorded);
+      let theirs = Math.max(0, scoreValue(match.opponentScore) - opponentRecorded);
+      goals.forEach(event => {
+        if (event.side === "opponent") theirs += 1; else ours += 1;
+        event.ourScoreAfter = ours;
+        event.opponentScoreAfter = theirs;
+      });
+    }
+    function startMatch() {
+      const actionAt = Date.now();
+      runUpdate("Starting match", match => {
+        const next = ensureLive(match);
+        next.startedAt = actionAt;
+        next.firstHalfStartedAt = actionAt;
+        next.matchdayHalfLength = Math.max(1, Number(next.matchdayHalfLength || MATCH_HALF_MINUTES));
+        next.matchdayStatus = "first-half";
+        delete next.halfTimeAt;
+        delete next.firstHalfElapsedMs;
+        delete next.secondHalfStartedAt;
+        delete next.secondHalfElapsedMs;
+        delete next.fullTimeAt;
+        delete next.finalisedAt;
+        addEvent(next, { type: "phase", createdAt: actionAt, minute: "", label: "Match started" });
+        return next;
+      }, `Match started against ${fixture()?.opponent || "the opposition"}`);
+    }
+    function setHalfTime() {
+      if (matchPhase(fixture()) !== "first-half") return;
+      const actionAt = Date.now();
+      runUpdate("Setting half time", match => {
+        const next = ensureLive(match);
+        next.firstHalfElapsedMs = Math.max(0, actionAt - Number(next.firstHalfStartedAt || next.startedAt || actionAt));
+        next.halfTimeAt = actionAt;
+        next.matchdayStatus = "half-time";
+        addEvent(next, { type: "phase", createdAt: actionAt, minute: "HT", label: `Half time: ${scoreValue(next.ourScore)}-${scoreValue(next.opponentScore)}` });
+        return next;
+      }, `Half time · ${scoreValue(fixture()?.ourScore)}-${scoreValue(fixture()?.opponentScore)}`);
+    }
+    function startSecondHalf() {
+      if (matchPhase(fixture()) !== "half-time") return;
+      const actionAt = Date.now();
+      runUpdate("Starting second half", match => {
+        const next = ensureLive(match);
+        next.secondHalfStartedAt = actionAt;
+        next.matchdayStatus = "second-half";
+        addEvent(next, { type: "phase", createdAt: actionAt, minute: `${Math.floor(firstHalfElapsedMs(next) / 60000)}'`, label: "Second half started" });
+        return next;
+      }, "Second half started");
+    }
+    function setFullTime() {
+      if (matchPhase(fixture()) !== "second-half") return;
+      const actionAt = Date.now();
+      runUpdate("Setting full time", match => {
+        const next = ensureLive(match);
+        next.secondHalfElapsedMs = Math.max(0, actionAt - Number(next.secondHalfStartedAt || actionAt));
+        next.fullTimeAt = actionAt;
+        next.matchdayStatus = "full-time";
+        addEvent(next, { type: "phase", createdAt: actionAt, minute: "FT", label: `Full time: ${scoreValue(next.ourScore)}-${scoreValue(next.opponentScore)}` });
+        return next;
+      }, `Full time · ${scoreValue(fixture()?.ourScore)}-${scoreValue(fixture()?.opponentScore)}`);
+    }
+    function canEditScorersFor(match) {
+      return ["first-half", "second-half", "full-time", "final"].includes(matchPhase(match));
+    }
+    function ensureScorerEdit(match) {
+      const next = Object.assign({}, match);
+      if (Number(next.ourScore) < 0) next.ourScore = 0;
+      if (Number(next.opponentScore) < 0) next.opponentScore = 0;
+      next.goalCounts = next.goalCounts && typeof next.goalCounts === "object" ? Object.assign({}, next.goalCounts) : {};
+      next.matchdayEvents = Array.isArray(next.matchdayEvents) ? [...next.matchdayEvents] : [];
+      return next;
+    }
+    function togglePlayerPlaying(playerId) {
+      const current = fixture();
+      if (!current || state.loading || state.pendingSaves) return;
+      const squad = selectedSquad(current);
+      const playing = squad.includes(String(playerId));
+      if (playing && scoreValue(current.goalCounts?.[playerId])) {
+        alert("Remove this player's goals before taking them out of the playing squad.");
+        return;
+      }
+      const name = playerName(playerId);
+      runUpdate(playing ? `Removing ${name} from playing squad` : `Adding ${name} to playing squad`, match => {
+        const next = Object.assign({}, match);
+        const ids = selectedSquad(next);
+        const updated = playing ? ids.filter(id => String(id) !== String(playerId)) : [...ids, String(playerId)];
+        next.playerIds = updated;
+        next.squadOrder = updated;
+        next.lineupPositions = idList(next.lineupPositions).map(id => String(id) === String(playerId) ? "" : id);
+        return next;
+      }, `${name} ${playing ? "removed from" : "added to"} the playing squad`);
+    }
+    function addPlayerGoal(playerId) {
+      const currentPhase = matchPhase(fixture());
+      if (!["first-half", "second-half", "full-time", "final"].includes(currentPhase)) return;
+      const name = playerName(playerId);
+      const actionAt = Date.now();
+      const liveGoal = ["first-half", "second-half"].includes(currentPhase);
+      runUpdate(liveGoal ? `Adding ${name}'s goal` : `Adding ${name} as goalscorer`, match => {
+        const next = liveGoal ? ensureLive(match) : ensureScorerEdit(match);
+        next.ourScore = scoreValue(next.ourScore) + 1;
+        next.goalCounts[playerId] = scoreValue(next.goalCounts[playerId]) + 1;
+        if (liveGoal) {
+          addEvent(next, { type: "goal", side: "our", playerId, createdAt: actionAt, ourScoreAfter: next.ourScore, opponentScoreAfter: next.opponentScore, label: `${name} scored · ${next.ourScore}-${next.opponentScore}` });
+        } else {
+          next.ourScore = scoreValue(match.ourScore);
+          if (scoreValue(next.unassignedGoals) > 0) next.unassignedGoals = scoreValue(next.unassignedGoals) - 1;
+          addEvent(next, { type: "correction", side: "our", playerId, createdAt: actionAt, minute: "FT", label: `${name} added as goalscorer` });
+        }
+        return next;
+      }, liveGoal ? `GOAL: ${name} · ${scoreValue(fixture()?.ourScore) + 1}-${scoreValue(fixture()?.opponentScore)}` : `Goalscorer added: ${name}`);
+    }
+    function removePlayerGoal(playerId) {
+      const current = scoreValue(fixture()?.goalCounts?.[playerId]);
+      if (!current) return;
+      const name = playerName(playerId);
+      const actionAt = Date.now();
+      const liveGoal = ["first-half", "second-half"].includes(matchPhase(fixture()));
+      runUpdate(`Correcting ${name}'s goals`, match => {
+        const next = liveGoal ? ensureLive(match) : ensureScorerEdit(match);
+        const count = scoreValue(next.goalCounts[playerId]);
+        if (count <= 1) delete next.goalCounts[playerId]; else next.goalCounts[playerId] = count - 1;
+        if (liveGoal) {
+          next.ourScore = Math.max(0, scoreValue(next.ourScore) - 1);
+          removeLatestGoalEvent(next, event => event.side === "our" && String(event.playerId || "") === String(playerId));
+          recalculateGoalEventScores(next);
+        }
+        addEvent(next, { type: "correction", side: "our", playerId, createdAt: actionAt, minute: liveGoal ? undefined : "FT", label: `${name}'s goal removed` });
+        return next;
+      }, `Score correction: ${name}`);
+    }
+    function addUnassignedGoal() {
+      if (!["first-half", "second-half"].includes(matchPhase(fixture()))) return;
+      const actionAt = Date.now();
+      runUpdate("Adding unassigned goal", match => {
+        const next = ensureLive(match);
+        next.ourScore = scoreValue(next.ourScore) + 1;
+        next.unassignedGoals = scoreValue(next.unassignedGoals) + 1;
+        addEvent(next, { type: "goal", side: "our", createdAt: actionAt, ourScoreAfter: next.ourScore, opponentScoreAfter: next.opponentScore, label: `Own goal / scorer to confirm · ${next.ourScore}-${next.opponentScore}` });
+        return next;
+      }, `Eastbourne goal · ${scoreValue(fixture()?.ourScore) + 1}-${scoreValue(fixture()?.opponentScore)}`);
+    }
+    function addOpponentGoal() {
+      if (!["first-half", "second-half"].includes(matchPhase(fixture()))) return;
+      const actionAt = Date.now();
+      runUpdate("Adding opposition goal", match => {
+        const next = ensureLive(match);
+        next.opponentScore = scoreValue(next.opponentScore) + 1;
+        addEvent(next, { type: "goal", side: "opponent", createdAt: actionAt, ourScoreAfter: next.ourScore, opponentScoreAfter: next.opponentScore, label: `${next.opponent || "Opposition"} scored · ${next.ourScore}-${next.opponentScore}` });
+        return next;
+      }, `Score update · ${scoreValue(fixture()?.ourScore)}-${scoreValue(fixture()?.opponentScore) + 1}`);
+    }
+    function removeUnassignedGoal() {
+      const match = fixture();
+      if (!match || scoreValue(match.unassignedGoals) < 1) return;
+      const actionAt = Date.now();
+      runUpdate("Removing unassigned goal", current => {
+        const next = ensureLive(current);
+        next.unassignedGoals = Math.max(0, scoreValue(next.unassignedGoals) - 1);
+        next.ourScore = Math.max(0, scoreValue(next.ourScore) - 1);
+        removeLatestGoalEvent(next, event => event.side === "our" && !event.playerId);
+        recalculateGoalEventScores(next);
+        addEvent(next, { type: "correction", side: "our", createdAt: actionAt, label: "Unassigned goal removed" });
+        return next;
+      }, "Unassigned goal removed");
+    }
+    function removeOpponentGoal() {
+      const match = fixture();
+      if (!match || scoreValue(match.opponentScore) < 1) return;
+      const actionAt = Date.now();
+      runUpdate("Removing opposition goal", current => {
+        const next = ensureLive(current);
+        next.opponentScore = Math.max(0, scoreValue(next.opponentScore) - 1);
+        removeLatestGoalEvent(next, event => event.side === "opponent");
+        recalculateGoalEventScores(next);
+        addEvent(next, { type: "correction", side: "opponent", createdAt: actionAt, label: "Opposition goal removed" });
+        return next;
+      }, "Opposition goal removed");
+    }
+    function undoLast() {
+      const match = fixture();
+      const events = Array.isArray(match?.matchdayEvents) ? match.matchdayEvents : [];
+      const event = [...events].reverse().find(item => item.type === "goal");
+      if (!event) return;
+      const actionAt = Date.now();
+      runUpdate("Undoing last goal", current => {
+        const next = ensureLive(current);
+        const targetIndex = [...next.matchdayEvents].reverse().findIndex(item => item.id === event.id);
+        const realIndex = targetIndex < 0 ? -1 : next.matchdayEvents.length - 1 - targetIndex;
+        if (realIndex >= 0) next.matchdayEvents.splice(realIndex, 1);
+        if (event.side === "opponent") next.opponentScore = Math.max(0, scoreValue(next.opponentScore) - 1);
+        else {
+          next.ourScore = Math.max(0, scoreValue(next.ourScore) - 1);
+          if (event.playerId) {
+            const count = scoreValue(next.goalCounts[event.playerId]);
+            if (count <= 1) delete next.goalCounts[event.playerId]; else next.goalCounts[event.playerId] = count - 1;
+          } else next.unassignedGoals = Math.max(0, scoreValue(next.unassignedGoals) - 1);
+        }
+        recalculateGoalEventScores(next);
+        addEvent(next, { type: "correction", side: event.side, playerId: event.playerId || "", createdAt: actionAt, label: `Undid: ${event.label}` });
+        return next;
+      }, `Last goal undone`);
+    }
+    function showFinaliseDialog() {
+      const match = fixture();
+      if (!match || state.loading || matchPhase(match) !== "full-time") return;
+      $("dialogRoot").innerHTML = `<div class="dialog" role="dialog" aria-modal="true"><div class="dialog-card"><span class="eyebrow">Full-time check</span><h2>Set final score?</h2><p>This confirms the result and publishes the match activity, goal minutes, scorer totals and badges to the app.</p><div class="dialog-score">${scoreValue(match.ourScore)} – ${scoreValue(match.opponentScore)}</div><div class="dialog-actions"><button class="secondary" id="cancelFinalise" type="button">Check again</button><button class="primary" id="confirmFinalise" type="button">Set final score</button></div></div></div>`;
+      $("cancelFinalise").onclick = () => $("dialogRoot").innerHTML = "";
+      $("confirmFinalise").onclick = () => {
+        $("dialogRoot").innerHTML = "";
+        const actionAt = Date.now();
+        runUpdate("Finalising result", current => {
+          const next = ensureLive(current);
+          next.completed = true;
+          next.matchdayStatus = "final";
+          next.finalisedAt = actionAt;
+          addEvent(next, { type: "final", createdAt: actionAt, minute: "FT", label: `Final score confirmed: ${scoreValue(next.ourScore)}-${scoreValue(next.opponentScore)}` });
+          return next;
+        }, `Full-time: ${CLUB} ${scoreValue(match.ourScore)}-${scoreValue(match.opponentScore)} ${match.opponent}`);
+      };
+    }
+    function reopenMatch() {
+      if (!confirm("Reopen this result for corrections? It will return to the full-time check before being confirmed again.")) return;
+      const actionAt = Date.now();
+      runUpdate("Reopening result", current => {
+        const next = ensureLive(current);
+        next.completed = false;
+        next.matchdayStatus = "full-time";
+        delete next.finalisedAt;
+        addEvent(next, { type: "correction", createdAt: actionAt, minute: "FT", label: "Result reopened for correction" });
+        return next;
+      }, `Result reopened for correction: ${fixture()?.opponent || "fixture"}`);
+    }
+    function resetMatchdayRecord(match) {
+      const next = Object.assign({}, match, {
+        ourScore: -1,
+        opponentScore: -1,
+        completed: false,
+        goalCounts: {},
+        goalScorers: [],
+        unassignedGoals: 0,
+        matchdayEvents: [],
+        matchdayStatus: ""
+      });
+      ["startedAt", "firstHalfStartedAt", "firstHalfElapsedMs", "halfTimeAt", "secondHalfStartedAt", "secondHalfElapsedMs", "fullTimeAt", "finalisedAt", "matchdayUpdatedAt"].forEach(key => delete next[key]);
+      return next;
+    }
+    function showResetDialog() {
+      const match = fixture();
+      if (!match || state.loading || state.pendingSaves) return;
+      $("dialogRoot").innerHTML = `<div class="dialog" role="dialog" aria-modal="true"><div class="dialog-card"><span class="eyebrow">Test safely</span><h2>Reset this match?</h2><p>This clears the score, scorers, match stages and complete activity timeline. The fixture, selected squad and formation stay in place so you can test it again.</p><div class="dialog-actions"><button class="secondary" id="cancelReset" type="button">Keep recording</button><button class="danger" id="confirmReset" type="button">Reset match</button></div></div></div>`;
+      $("cancelReset").onclick = () => $("dialogRoot").innerHTML = "";
+      $("confirmReset").onclick = () => {
+        $("dialogRoot").innerHTML = "";
+        runUpdate("Resetting match", current => resetMatchdayRecord(current), `Matchday record reset: ${match.opponent || "fixture"}`);
+      };
+    }
+    function eventHtml(event) {
+      const icon = event.type === "final" ? "✓" : event.type === "phase" ? "◷" : event.type === "correction" ? "↶" : "⚽";
+      const detail = [event.minute, event.playerId ? playerName(event.playerId) : "", event.createdAt ? new Date(event.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""].filter(Boolean).join(" · ");
+      return `<div class="event"><span class="event-icon">${icon}</span><div><strong>${esc(event.label || "Match update")}</strong><span>${esc(detail)}</span></div></div>`;
+    }
+    function phaseControlsHtml(match) {
+      const phase = matchPhase(match);
+      const currentIndex = PHASE_ORDER.indexOf(phase);
+      const controls = [
+        { phase: "first-half", id: "startMatch", label: "Start Match", available: phase === "ready" },
+        { phase: "half-time", id: "setHalfTime", label: "Half Time", available: phase === "first-half" },
+        { phase: "second-half", id: "startSecondHalf", label: "Second Half Started", available: phase === "half-time" },
+        { phase: "full-time", id: "setFullTime", label: "Full Time", available: phase === "second-half" }
+      ];
+      return controls.map(control => {
+        const index = PHASE_ORDER.indexOf(control.phase);
+        const done = currentIndex > index || phase === "final";
+        const active = phase === control.phase;
+        return `<button class="phase-button ${done ? "done" : ""} ${active ? "active" : ""}" id="${control.id}" type="button" ${state.loading || !control.available ? "disabled" : ""}>${done ? "✓ " : ""}${control.label}</button>`;
+      }).join("");
+    }
+    function renderFixtureOptions() {
+      const select = $("fixtureSelect");
+      if (!select) return;
+      const fixtures = [...state.team.fixtures].sort((a, b) => {
+        const aFinal = statusFor(a) === "final" ? 1 : 0;
+        const bFinal = statusFor(b) === "final" ? 1 : 0;
+        return aFinal - bFinal || Math.abs(parseDate(a.date) - Date.now()) - Math.abs(parseDate(b.date) - Date.now());
+      });
+      select.innerHTML = fixtures.map(match => `<option value="${esc(match.id)}" ${String(match.id) === String(state.fixtureId) ? "selected" : ""}>${statusLabel(match)} · ${esc(displayDate(match.date))} · ${esc(match.opponent || "Opponent TBC")}</option>`).join("");
+      select.disabled = state.loading || state.pendingSaves > 0;
+      select.onchange = () => {
+        state.fixtureId = select.value;
+        const url = new URL(location.href);
+        url.searchParams.set("fixture", state.fixtureId);
+        history.replaceState(null, "", url);
+        const selectedMatch = fixture();
+        if (selectedMatch) publishLiveMatch(selectedMatch, state.team);
+        render();
+      };
+    }
+    function render() {
+      if ($("consoleScreen").classList.contains("hidden")) return;
+      renderFixtureOptions();
+      const match = fixture();
+      if (!match) {
+        $("matchContent").innerHTML = `<div class="empty">No fixtures are available. Add a fixture in the management portal first.</div>`;
+        $("bottomBar").classList.add("hidden");
+        return;
+      }
+      const status = statusFor(match);
+      const phase = matchPhase(match);
+      const canRecordLiveGoal = !state.loading && ["first-half", "second-half"].includes(phase);
+      const canCorrectScore = !state.loading && !["ready", "final"].includes(phase);
+      const canEditScorers = !state.loading && canEditScorersFor(match);
+      const squad = selectedSquad(match);
+      const playingIds = new Set(squad.map(String));
+      const matchStarted = phase !== "ready";
+      const goalCounts = match.goalCounts && typeof match.goalCounts === "object" ? match.goalCounts : {};
+      const matchPhotos = normaliseMatchPhotos(match.matchPhotos);
+      const events = (Array.isArray(match.matchdayEvents) ? match.matchdayEvents : []).slice(-8).reverse();
+      const lastGoalExists = events.some(event => event.type === "goal");
+      const scorerRows = (matchStarted ? squad : allPlayerIds(match)).map(id => {
+        const goals = scoreValue(goalCounts[id]);
+        const isPlaying = playingIds.has(String(id));
+        const scorerText = goals ? `${goals} goal${goals === 1 ? "" : "s"} today` : (isPlaying ? "Playing today" : "Listed player");
+        return `<div class="scorer ${isPlaying ? "" : "not-playing"}"><div class="shirt">${esc(playerNumber(id))}</div><div class="scorer-name"><strong>${esc(playerName(id))}</strong><span>${scorerText}</span>${matchStarted ? "" : `<button class="player-toggle ${isPlaying ? "playing" : ""}" data-toggle-player="${esc(id)}" type="button" ${state.loading || state.pendingSaves ? "disabled" : ""}>${isPlaying ? "Remove from squad" : "Add to playing squad"}</button>`}</div><div class="scorer-controls"><button class="remove-goal" data-remove-player="${esc(id)}" type="button" aria-label="Remove a goal from ${esc(playerName(id))}" ${!canEditScorers || !goals ? "disabled" : ""}>−</button><output class="goal-total" aria-label="${esc(playerName(id))} goals">${goals}</output><button class="add-goal" data-add-player="${esc(id)}" type="button" aria-label="Add a goal for ${esc(playerName(id))}" ${!canEditScorers || !isPlaying ? "disabled" : ""}><span>+</span><small>${canRecordLiveGoal ? "Goal" : "Scorer"}</small></button></div></div>`;
+      }).join("");
+      const squadChangeRows = matchStarted ? allPlayerIds(match).map(id => {
+        const isPlaying = playingIds.has(String(id));
+        return `<div class="squad-change-row"><span><strong>${esc(playerNumber(id))}. ${esc(playerName(id))}</strong><small>${isPlaying ? "Picked for this match" : "Not currently picked"}</small></span><button class="player-toggle ${isPlaying ? "playing" : ""}" data-toggle-player="${esc(id)}" type="button" ${state.loading || state.pendingSaves ? "disabled" : ""}>${isPlaying ? "Remove" : "Add"}</button></div>`;
+      }).join("") : "";
+      $("matchContent").innerHTML = `
+        <article class="match-card">
+          <div class="match-head"><div class="match-meta"><span>${esc(displayDate(match.date))} · ${esc(match.kickOffTime || "KO TBC")}</span><span class="status-pill ${status}">${statusLabel(match)}</span></div><h1>${esc(match.venue === "Away" ? `${match.opponent} v ${CLUB}` : `${CLUB} v ${match.opponent}`)}</h1><p>${esc(match.venue || "Venue TBC")} · ${esc(match.competition || "Fixture")}</p></div>
+          <div class="scoreboard"><div class="team"><img src="assets/badgeeu.jfif" onerror="this.onerror=null;this.src='assets/icon.svg'" alt=""><strong>Eastbourne United</strong></div><div class="score"><strong>${scoreValue(match.ourScore)}</strong><span>–</span><strong>${scoreValue(match.opponentScore)}</strong></div><div class="team opponent"><img src="${esc(crestFor(match))}" onerror="this.onerror=null;this.src='assets/football-pro.png'" alt=""><strong>${esc(match.opponent || "Opposition")}</strong></div></div>
+          <div class="match-actions">${status === "final" ? `<button class="secondary" id="reopenMatch" type="button" ${state.loading ? "disabled" : ""}>Reopen for correction</button>` : `<button class="secondary" id="undoLast" type="button" ${!canCorrectScore || !lastGoalExists ? "disabled" : ""}>Undo last goal</button>`}<button class="danger" id="resetMatch" type="button" ${state.loading || state.pendingSaves ? "disabled" : ""}>Reset match</button><button class="secondary wide" id="refreshMatch" type="button" ${state.loading || state.pendingSaves ? "disabled" : ""}>Refresh match data</button></div>
+        </article>
+        <section class="section-card match-clock-card"><div class="match-clock-top"><div class="match-clock-copy"><h2>Match controls</h2><p>Start whenever the referee begins. Each half counts down from ${halfLength(match)} minutes, and goal minutes are still recorded from the running match clock.</p></div><div><div class="match-clock" id="matchClock">${matchClock(match)}</div><div class="match-clock-label" id="matchClockLabel">${matchClockLabel(match)}</div></div></div><div class="phase-controls">${phaseControlsHtml(match)}</div></section>
+        <div class="content-grid">
+          <section class="section-card"><div class="section-heading"><div><h2>Quick score</h2><p>Use − to correct a mistake and + to record a timed goal.</p></div><span>${scoreValue(match.ourScore)}–${scoreValue(match.opponentScore)}</span></div><div class="quick-goals"><div class="quick-goal"><span>Eastbourne goal<small>Own goal / scorer later · ${scoreValue(match.unassignedGoals)}</small></span><div class="quick-goal-actions"><button class="quick-score-button minus" id="removeUnassignedGoal" type="button" aria-label="Remove an unassigned Eastbourne goal" ${!canCorrectScore || !scoreValue(match.unassignedGoals) ? "disabled" : ""}>−</button><button class="quick-score-button" id="unassignedGoal" type="button" aria-label="Add an unassigned Eastbourne goal" ${!canRecordLiveGoal ? "disabled" : ""}>+</button></div></div><div class="quick-goal opponent"><span>${esc(match.opponent || "Opposition")}<small>Opposition goals · ${scoreValue(match.opponentScore)}</small></span><div class="quick-goal-actions"><button class="quick-score-button minus" id="removeOpponentGoal" type="button" aria-label="Remove an opposition goal" ${!canCorrectScore || !scoreValue(match.opponentScore) ? "disabled" : ""}>−</button><button class="quick-score-button" id="opponentGoal" type="button" aria-label="Add an opposition goal" ${!canRecordLiveGoal ? "disabled" : ""}>+</button></div></div></div></section>
+          <section class="section-card"><div class="section-heading"><div><h2>Players & goalscorers</h2><p>${matchStarted ? "Only the selected match squad is shown while the game is running. Use + and − to record or correct scorers." : "Pick the matchday squad before kick-off, then use + and − for goals once the game starts."}</p></div><span class="save-note ${state.pendingSaves ? "saving" : ""}">${state.pendingSaves ? "Saving scorers..." : "Scorers saved"}</span></div><div class="scorer-list">${scorerRows || `<div class="empty">No players are selected for this match.</div>`}</div>${matchStarted ? `<details class="squad-change-drawer"><summary>Emergency squad changes (${state.team.players.length - squad.length} not picked)</summary><div class="squad-change-list">${squadChangeRows}</div></details>` : ""}</section>
+          <section class="section-card"><div class="section-heading"><div><h2>Match activity</h2><p>Latest saved actions from this device and other matchday sessions.</p></div><span>${events.length}</span></div><div class="events">${events.map(eventHtml).join("") || `<div class="empty">Match events will appear here as goals are recorded.</div>`}</div></section>
+          <section class="section-card"><div class="section-heading"><div><h2>Match photos</h2><p>Take a photo or choose from your gallery. It appears in the app's match report.</p></div><span>${matchPhotos.length}</span></div><label class="matchday-photo-upload"><input id="matchdayPhotoFiles" type="file" accept="image/*" multiple><strong>＋ Add match photos</strong><span>Camera or photo library · maximum ${MAX_MATCH_PHOTOS}</span></label><div class="matchday-photo-status" id="matchdayPhotoStatus">Photos save directly to this fixture.</div>${matchPhotos.length ? `<div class="matchday-photo-grid">${matchPhotos.map(photo => `<div class="matchday-photo"><img src="${esc(photo.url)}" alt="${esc(photo.title || "Match photo")}"><button type="button" data-remove-match-photo="${esc(photo.id)}" aria-label="Remove photo">×</button></div>`).join("")}</div>` : ""}</section>
+        </div>`;
+      $("bottomBar").classList.remove("hidden");
+      $("finaliseButton").textContent = status === "final" ? "Score confirmed" : "Set final score";
+      $("finaliseButton").disabled = state.loading || state.pendingSaves > 0 || phase !== "full-time";
+      document.querySelectorAll("[data-add-player]").forEach(button => button.onclick = () => addPlayerGoal(button.dataset.addPlayer));
+      document.querySelectorAll("[data-remove-player]").forEach(button => button.onclick = () => removePlayerGoal(button.dataset.removePlayer));
+      document.querySelectorAll("[data-toggle-player]").forEach(button => button.onclick = () => togglePlayerPlaying(button.dataset.togglePlayer));
+      if ($("startMatch")) $("startMatch").onclick = startMatch;
+      if ($("setHalfTime")) $("setHalfTime").onclick = setHalfTime;
+      if ($("startSecondHalf")) $("startSecondHalf").onclick = startSecondHalf;
+      if ($("setFullTime")) $("setFullTime").onclick = setFullTime;
+      if ($("reopenMatch")) $("reopenMatch").onclick = reopenMatch;
+      if ($("resetMatch")) $("resetMatch").onclick = showResetDialog;
+      if ($("undoLast")) $("undoLast").onclick = undoLast;
+      if ($("refreshMatch")) $("refreshMatch").onclick = loadAll;
+      $("unassignedGoal").onclick = addUnassignedGoal;
+      $("opponentGoal").onclick = addOpponentGoal;
+      $("removeUnassignedGoal").onclick = removeUnassignedGoal;
+      $("removeOpponentGoal").onclick = removeOpponentGoal;
+      $("matchdayPhotoFiles").onchange = event => addMatchPhotos(event.target.files);
+      document.querySelectorAll("[data-remove-match-photo]").forEach(button => button.onclick = () => removeMatchPhoto(button.dataset.removeMatchPhoto));
+      updateClockDisplay();
+    }
+    function chooseDefaultFixture() {
+      const requested = new URL(location.href).searchParams.get("fixture");
+      if (requested && state.team.fixtures.some(match => String(match.id) === requested)) return requested;
+      const today = new Date(); today.setHours(12,0,0,0);
+      const sameDay = state.team.fixtures.find(match => !match.completed && Math.abs(parseDate(match.date) - today.getTime()) < 43200000);
+      if (sameDay) return String(sameDay.id);
+      const upcoming = [...state.team.fixtures].filter(match => !match.completed).sort((a,b) => Math.abs(parseDate(a.date) - Date.now()) - Math.abs(parseDate(b.date) - Date.now()))[0];
+      return String((upcoming || [...state.team.fixtures].sort((a,b) => parseDate(b.date) - parseDate(a.date))[0] || {}).id || "");
+    }
+    function resumePendingFixtureSaves(fixtureIds) {
+      const pending = pendingFixtureMap();
+      const selectedFixtureId = state.fixtureId;
+      (fixtureIds || Object.keys(pending)).forEach(fixtureId => {
+        const desired = pending[String(fixtureId)];
+        if (!desired || !state.team.fixtures.some(match => String(match.id) === String(fixtureId))) return;
+        state.fixtureId = String(fixtureId);
+        state.queueError = true;
+        runUpdate("Restoring saved match changes", current => Object.assign({}, current, cloneRecord(desired)), `Recovered locally saved match changes for ${desired.opponent || "fixture"}`);
+      });
+      state.fixtureId = selectedFixtureId || state.fixtureId;
+      render();
+    }
+    async function loadAll() {
+      if (state.loading || state.pendingSaves) return;
+      state.loading = true;
+      const pendingToResume = [];
+      setConnection("Loading the latest match data…", "saving");
+      try {
+        const snapshot = await getTeam();
+        state.team = snapshot.team;
+        const pending = pendingFixtureMap();
+        Object.entries(pending).forEach(([fixtureId, desired]) => {
+          const index = state.team.fixtures.findIndex(match => String(match.id) === String(fixtureId));
+          if (index < 0) { clearPendingFixture(fixtureId); return; }
+          const remote = state.team.fixtures[index];
+          if (Number(remote.matchdayUpdatedAt || 0) >= Number(desired?.matchdayUpdatedAt || 0) && pendingFixtureSignature(remote) === pendingFixtureSignature(desired)) { clearPendingFixture(fixtureId); return; }
+          state.team.fixtures[index] = Object.assign({}, remote, cloneRecord(desired));
+          pendingToResume.push(fixtureId);
+        });
+        if (!state.fixtureId || !state.team.fixtures.some(match => String(match.id) === String(state.fixtureId))) state.fixtureId = chooseDefaultFixture();
+        const current = fixture();
+        if (current) publishLiveMatch(current, state.team);
+        setConnection(`Live data loaded · ${new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`);
+      } catch (error) {
+        setConnection(`Could not load: ${error.message}`, "error");
+      } finally {
+        state.loading = false;
+        render();
+        if (pendingToResume.length) setTimeout(() => resumePendingFixtureSaves(pendingToResume), 0);
+      }
+    }
+    function showConsole() {
+      $("loginScreen").classList.add("hidden");
+      $("consoleScreen").classList.remove("hidden");
+      loadAll();
+    }
+    async function findManagerLogin(username, pin) {
+      const name = String(username || "").trim().toLowerCase();
+      const enteredPin = String(pin || "");
+      if (!name || !enteredPin) return null;
+      const latest = await getTeam();
+      const manager = (latest.team.managers || []).find(item => {
+        const managerName = String(item.name || "").trim().toLowerCase();
+        const managerId = String(item.id || "").trim().toLowerCase();
+        return (managerName === name || managerId === name) && String(item.pin || "") === enteredPin;
+      });
+      if (!manager) return null;
+      state.team = latest.team;
+      return manager;
+    }
+    $("loginForm").onsubmit = async event => {
+      event.preventDefault();
+      const username = $("username").value.trim();
+      const password = $("password").value;
+      const error = $("loginError");
+      error.textContent = "";
+      if (username === USERNAME && password === PASSWORD) {
+        sessionStorage.setItem("matchdaySuperAdmin", "1");
+        sessionStorage.removeItem("matchdayManagerAuthed");
+        sessionStorage.removeItem("matchdayManagerName");
+        showConsole();
+        return;
+      }
+      const button = $("loginForm").querySelector("button[type='submit']");
+      if (button) { button.disabled = true; button.textContent = "Checking login..."; }
+      try {
+        const manager = await findManagerLogin(username, password);
+        if (!manager) {
+          error.textContent = "Incorrect super admin login or manager name/PIN.";
+          return;
+        }
+        sessionStorage.setItem("matchdayManagerAuthed", "1");
+        sessionStorage.setItem("matchdayManagerName", manager.name || username);
+        sessionStorage.removeItem("matchdaySuperAdmin");
+        showConsole();
+      } catch (loginError) {
+        error.textContent = `Login could not be checked: ${loginError.message}`;
+      } finally {
+        if (button) { button.disabled = false; button.textContent = "Open matchday console"; }
+      }
+    };
+    $("logoutButton").onclick = () => { sessionStorage.removeItem("matchdaySuperAdmin"); sessionStorage.removeItem("matchdayManagerAuthed"); sessionStorage.removeItem("matchdayManagerName"); location.reload(); };
+    $("installButton").onclick = installMatchdayApp;
+    $("refreshButton").onclick = loadAll;
+    $("managementButton").onclick = () => window.open("management.html", "_blank");
+    $("liveScoreButton").onclick = () => window.open("live-score.html", "_blank");
+    $("finaliseButton").onclick = showFinaliseDialog;
+    window.addEventListener("online", () => { setConnection("Connection restored"); loadAll(); });
+    window.addEventListener("offline", () => setConnection("Offline — keep recording; changes are held safely on this device and will retry automatically", "error"));
+    setInterval(updateClockDisplay, 1000);
+    if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol)) navigator.serviceWorker.register("./sw.js?v=38", { updateViaCache: "none" }).then(registration => registration.update()).catch(error => console.warn("Service worker registration failed", error));
+    updateInstallButton();
+    if (sessionStorage.getItem("matchdaySuperAdmin") === "1" || sessionStorage.getItem("matchdayManagerAuthed") === "1") showConsole();
+  </script>
+</body>
+</html>
