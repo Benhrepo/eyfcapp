@@ -2,6 +2,8 @@
 
 The cPanel version runs entirely in PHP. It does **not** require Node.js, npm or `proc_open`. The same PHP job powers both the cron and the **Sync fixtures & results now** button in the management portal.
 
+> The current hosting IP is blocked by FA Full-Time with HTTP 403. Create a free ScraperAPI account and add its key below; the PHP job then retrieves the two public pages through ScraperAPI while all parsing, duplicate protection and Firebase writes stay on cPanel.
+
 ## 1. Upload the files
 
 Upload the changed-files package into the app's existing document root. For the current installation this is:
@@ -43,7 +45,8 @@ In **cPanel → File Manager**:
 4. Name the copy `.cpanel-sync-config.php`.
 5. Generate a private key in Terminal with `openssl rand -hex 32`.
 6. Replace `sync_token` with that generated key.
-7. Save the file and set its permissions to `0600`.
+7. Create a free account at `https://www.scraperapi.com/`, copy its API key and add it as `scraperapi_key`.
+8. Save the file and set its permissions to `0600`.
 
 The supplied `.htaccess` blocks browsers from downloading this private configuration. Do not put the sync key in `management.html`.
 
@@ -53,6 +56,7 @@ Example:
 <?php
 return [
     'sync_token' => 'paste-the-generated-key-here',
+    'scraperapi_key' => 'paste-the-scraperapi-key-here',
     'firebase_database_url' => '',
     'firebase_auth_token' => '',
     'fulltime_results_url' => '',
@@ -72,6 +76,8 @@ The status cards show:
 - the last successful run or any failure message.
 
 ## 5. Add the cPanel cron job
+
+Only enable the cron after the management button succeeds through ScraperAPI.
 
 Open **cPanel → Cron Jobs** and add:
 
@@ -98,5 +104,6 @@ If the cPanel server uses a timezone other than UTC or Europe/London, use Hour `
 - **Configuration required:** `.cpanel-sync-config.php` is missing or misnamed.
 - **Incorrect sync key:** the key entered in the portal does not exactly match `sync_token`.
 - **PHP DOM or cURL missing:** enable PHP `dom`, `xml` and `curl` in cPanel's PHP extensions screen or ask the host.
-- **Cloudflare blocked the server:** the FA rejected the hosting IP. No match data is changed; the management status displays the failure.
+- **Cloudflare blocked the server:** make sure `scraperapi_key` is present and correct in the private configuration.
+- **ScraperAPI HTTP error:** check the account's remaining monthly credits and API key in its dashboard. No match data is changed on a failed fetch.
 - **Firebase 401/403:** add an appropriate `firebase_auth_token` to the private configuration.

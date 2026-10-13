@@ -5699,7 +5699,7 @@
       const sync = state.fulltimeSync || {};
       const status = String(sync.status || "pending").toLowerCase();
       const statusClass = status === "success" ? "success" : status === "failed" ? "failed" : "pending";
-      const statusLabel = status === "success" ? "Up to date" : status === "failed" ? "Needs attention" : status === "dry-run" ? "Dry run checked" : status === "queued" ? "Queued in GitHub" : "Waiting for first run";
+      const statusLabel = status === "success" ? "Up to date" : status === "failed" ? "Needs attention" : status === "dry-run" ? "Dry run checked" : "Waiting for first run";
       const timestamp = sync.lastSuccessAt || sync.completedAt || sync.lastAttemptAt;
       const when = timestamp ? new Date(timestamp).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" }) : "Not run yet";
       const resultChanges = sync.results?.leagueChanges || {};
@@ -5718,25 +5718,6 @@
     }
     function fullTimeSyncEndpoint() {
       return `${location.pathname.includes("/beta/") ? "../" : "./"}automation/fulltime-sync-cpanel.php`;
-    }
-    async function pollFullTimeSyncCompletion(queuedAt) {
-      const queuedTime = new Date(queuedAt || 0).getTime();
-      for (let attempt = 0; attempt < 36; attempt += 1) {
-        await new Promise(resolve => setTimeout(resolve, 5000));
-        try {
-          const latest = await getJson("fulltime_sync_status", {});
-          const latestTime = new Date(latest?.lastAttemptAt || latest?.completedAt || 0).getTime();
-          if (latest && latest.status !== "queued" && (!queuedTime || latestTime >= queuedTime)) {
-            state.fulltimeSync = latest;
-            setSync(latest.status === "success" ? "Full-Time browser sync completed" : `Full-Time browser sync ${latest.status || "updated"}`);
-            renderUpload();
-            bindSectionActions();
-            toast(latest.message || (latest.status === "success" ? "Fixtures and results synced" : "Full-Time sync finished"));
-            return;
-          }
-        } catch (_) {}
-      }
-      toast("The browser sync is still running. Its result will appear here automatically when finished.");
     }
     async function runFullTimeSyncNow() {
       captureFixtureUploadForm();
@@ -5760,10 +5741,8 @@
           throw new Error(payload.message || `Sync failed with HTTP ${response.status}`);
         }
         state.fulltimeSync = payload.status && typeof payload.status === "object" ? payload.status : payload;
-        const queued = state.fulltimeSync.status === "queued";
-        setSync(queued ? "Full-Time browser sync queued in GitHub" : `Full-Time synced ${new Date().toLocaleTimeString()}`);
+        setSync(`Full-Time synced ${new Date().toLocaleTimeString()}`);
         toast(state.fulltimeSync.message || "Fixtures and results synced");
-        if (queued) pollFullTimeSyncCompletion(state.fulltimeSync.lastAttemptAt);
       } catch (error) {
         state.fulltimeSync = Object.assign({}, state.fulltimeSync, { status: "failed", lastAttemptAt: new Date().toISOString(), message: error.message });
         setSync(`Full-Time sync failed: ${error.message}`);

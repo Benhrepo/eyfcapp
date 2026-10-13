@@ -10,8 +10,6 @@ import {
 } from "./lib/fulltime-data.mjs";
 import { fetchFullTimePage } from "./lib/http1-fetch.mjs";
 
-let browserFetchModule = null;
-
 export const RESULTS_URL = "https://fulltime.thefa.com/results.html?selectedSeason=2616809&selectedFixtureGroupAgeGroup=0&selectedFixtureGroupKey=1_516568481&selectedRelatedFixtureOption=3&selectedClub=&selectedTeam=&selectedDateCode=all&previousSelectedFixtureGroupAgeGroup=&previousSelectedFixtureGroupKey=&previousSelectedClub=&itemsPerPage=10000";
 export const FIXTURES_URL = "https://fulltime.thefa.com/fixtures.html?league=1375655&selectedSeason=2616809&selectedDivision=655442940&selectedCompetition=0&selectedFixtureGroupKey=1_516568481&selectedDateCode=all&selectedRelatedFixtureOption=1&itemsPerPage=10000";
 
@@ -137,12 +135,7 @@ function scheduledInvocationIsActive() {
 
 async function inputHtml(fileArg, url) {
   const file = argValue(fileArg);
-  if (file) return readFile(file, "utf8");
-  if (process.env.FULLTIME_BROWSER_FETCH === "1") {
-    browserFetchModule ||= await import("./lib/browser-fetch.mjs");
-    return browserFetchModule.fetchFullTimePageInBrowser(url);
-  }
-  return fetchFullTimePage(url);
+  return file ? readFile(file, "utf8") : fetchFullTimePage(url);
 }
 
 function logStats(label, stats) {
@@ -225,8 +218,6 @@ export async function runSync() {
     };
     try { await writeStatus(failed); } catch (statusError) { console.error(`Could not record failure status: ${statusError.message}`); }
     throw error;
-  } finally {
-    if (browserFetchModule) await browserFetchModule.closeFullTimeBrowser();
   }
 }
 

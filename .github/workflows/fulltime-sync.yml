@@ -1,15 +1,10 @@
-name: Sunday FA Full-Time sync
+name: Manual FA Full-Time backup sync
 
 permissions:
   contents: read
 
 on:
   workflow_dispatch:
-  schedule:
-    # GitHub cron is UTC. Running both hours plus the script's London-time guard
-    # keeps this at 18:00 through both GMT and British Summer Time.
-    - cron: "0 17 * * 0"
-    - cron: "0 18 * * 0"
 
 concurrency:
   group: euyfc-fulltime-sync
@@ -26,7 +21,7 @@ jobs:
       FIREBASE_DATABASE_URL: ${{ secrets.FIREBASE_DATABASE_URL }}
       FIREBASE_AUTH_TOKEN: ${{ secrets.FIREBASE_AUTH_TOKEN }}
       GITHUB_EVENT_SCHEDULE: ${{ github.event.schedule }}
-      FULLTIME_BROWSER_FETCH: "1"
+      SCRAPERAPI_API_KEY: ${{ secrets.SCRAPERAPI_API_KEY }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -34,14 +29,8 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: automation/package-lock.json
+      - name: Require ScraperAPI key
+        run: test -n "$SCRAPERAPI_API_KEY" || { echo "Add SCRAPERAPI_API_KEY in repository Actions secrets."; exit 1; }
       - run: npm ci
       - run: npm test
-      - run: npx playwright install --with-deps chromium
       - run: npm run sync -- --scheduled
-      - name: Upload Full-Time browser diagnostics
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: fulltime-browser-diagnostics
-          path: automation/artifacts/
-          if-no-files-found: ignore

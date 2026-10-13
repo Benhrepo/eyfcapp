@@ -64,12 +64,6 @@ if ($lockHandle === false || !flock($lockHandle, LOCK_EX | LOCK_NB)) {
 }
 
 try {
-    if (!$isCli && euyfc_config_value($config, 'github_token') !== '') {
-        $status = euyfc_dispatch_github($config);
-        flock($lockHandle, LOCK_UN);
-        fclose($lockHandle);
-        euyfc_respond(202, ['status' => $status, 'message' => $status['message']]);
-    }
     $status = euyfc_run_sync($config);
     flock($lockHandle, LOCK_UN);
     fclose($lockHandle);

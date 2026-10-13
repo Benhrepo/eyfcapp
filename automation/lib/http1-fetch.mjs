@@ -91,13 +91,25 @@ function blockedMessage(status, body) {
 
 export async function fetchFullTimePage(url, redirects = 0) {
   if (redirects > 5) throw new Error("Too many redirects from FA Full-Time");
-  const response = await rawTlsRequest(url);
+  const scraperApiKey = process.env.SCRAPERAPI_API_KEY || "";
+  let requestUrl = url;
+  if (scraperApiKey) {
+    const proxyUrl = new URL("https://api.scraperapi.com/");
+    proxyUrl.searchParams.set("api_key", scraperApiKey);
+    proxyUrl.searchParams.set("url", url);
+    proxyUrl.searchParams.set("render", "true");
+    proxyUrl.searchParams.set("premium", "true");
+    proxyUrl.searchParams.set("country_code", "gb");
+    proxyUrl.searchParams.set("wait_for_selector", url.includes("results.html") ? ".datetime-col" : "table tr");
+    requestUrl = proxyUrl.toString();
+  }
+  const response = await rawTlsRequest(requestUrl, scraperApiKey ? 100000 : 35000);
+  if (scraperApiKey && response.status !== 200) throw new Error(`ScraperAPI could not retrieve FA Full-Time (HTTP ${response.status || "unknown"}). No app data was changed.`);
   if (response.status >= 300 && response.status < 400 && response.headers.get("location")) {
-    return fetchFullTimePage(new URL(response.headers.get("location"), url).toString(), redirects + 1);
+    return fetchFullTimePage(new URL(response.headers.get("location"), requestUrl).toString(), redirects + 1);
   }
   if (response.status !== 200) throw new Error(blockedMessage(response.status, response.body));
   if (/attention required|you have been blocked|you have been prevented/i.test(response.body)) throw new Error(blockedMessage(403, response.body));
   if (!response.body || response.body.length < 1000) throw new Error("FA Full-Time returned an unexpectedly empty page. No app data was changed.");
   return response.body;
 }
-

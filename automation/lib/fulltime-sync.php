@@ -609,7 +609,7 @@ function euyfc_merge_our_fixtures($team, array $rows): array
     return ['value' => $nextTeam, 'stats' => $stats];
 }
 
-function euyfc_http_request(string $method, string $url, array $headers = [], ?string $body = null, bool $follow = true): array
+function euyfc_http_request(string $method, string $url, array $headers = [], ?string $body = null, bool $follow = true, int $timeoutSeconds = 45): array
 {
     if (!function_exists('curl_init')) {
         throw new RuntimeException('The PHP cURL extension is not enabled on this hosting account. Ask the host to enable PHP cURL.');
@@ -620,7 +620,7 @@ function euyfc_http_request(string $method, string $url, array $headers = [], ?s
         CURLOPT_RETURNTRANSFER => true,
         CURLOPT_CUSTOMREQUEST => $method,
         CURLOPT_CONNECTTIMEOUT => 15,
-        CURLOPT_TIMEOUT => 45,
+        CURLOPT_TIMEOUT => $timeoutSeconds,
         CURLOPT_FOLLOWLOCATION => $follow,
         CURLOPT_MAXREDIRS => 5,
         CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
@@ -647,15 +647,32 @@ function euyfc_http_request(string $method, string $url, array $headers = [], ?s
     return ['status' => $status, 'headers' => $responseHeaders, 'body' => (string)$responseBody];
 }
 
-function euyfc_fetch_fulltime(string $url): string
+function euyfc_fetch_fulltime(string $url, array $config): string
 {
-    $response = euyfc_http_request('GET', $url, [
+    $scraperApiKey = euyfc_config_value($config, 'scraperapi_key', 'SCRAPERAPI_API_KEY');
+    $requestUrl = $url;
+    $throughScraperApi = $scraperApiKey !== '';
+    if ($throughScraperApi) {
+        $waitFor = strpos($url, 'results.html') !== false ? '.datetime-col' : 'table tr';
+        $requestUrl = 'https://api.scraperapi.com/?' . http_build_query([
+            'api_key' => $scraperApiKey,
+            'url' => $url,
+            'render' => 'true',
+            'premium' => 'true',
+            'country_code' => 'gb',
+            'wait_for_selector' => $waitFor
+        ], '', '&', PHP_QUERY_RFC3986);
+    }
+    $response = euyfc_http_request('GET', $requestUrl, [
         'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
         'Accept-Language: en-GB,en;q=0.9',
         'Accept-Encoding: identity',
         'Upgrade-Insecure-Requests: 1'
-    ]);
+    ], null, true, $throughScraperApi ? 100 : 45);
     $body = $response['body'];
+    if ($throughScraperApi && $response['status'] !== 200) {
+        throw new RuntimeException('ScraperAPI could not retrieve FA Full-Time (HTTP ' . ($response['status'] ?: 'unknown') . '). No app data was changed.');
+    }
     if ($response['status'] === 403 && preg_match('/cloudflare|attention required|you have been blocked|you have been prevented/i', $body)) {
         throw new RuntimeException('FA Full-Time blocked this server through its Cloudflare protection. No app data was changed.');
     }
@@ -693,40 +710,6 @@ function euyfc_database_url(string $path, array $config): string
     $root = euyfc_config_value($config, 'firebase_database_url', 'FIREBASE_DATABASE_URL');
     if ($root === '') { $root = EUYFC_DEFAULT_DATABASE_ROOT; }
     return euyfc_auth_url(rtrim($root, '/') . '/' . $path . '.json', $config);
-}
-
-function euyfc_dispatch_github(array $config): array
-{
-    $repository = euyfc_config_value($config, 'github_repository');
-    $workflow = euyfc_config_value($config, 'github_workflow');
-    $branch = euyfc_config_value($config, 'github_branch');
-    $token = euyfc_config_value($config, 'github_token');
-    if ($repository === '' || $workflow === '' || $token === '') {
-        throw new RuntimeException('GitHub browser sync is not configured. Add github_repository, github_workflow and github_token to the private cPanel configuration.');
-    }
-    if ($branch === '') { $branch = 'main'; }
-    $url = 'https://api.github.com/repos/' . $repository . '/actions/workflows/' . rawurlencode($workflow) . '/dispatches';
-    $body = json_encode(['ref' => $branch], JSON_UNESCAPED_SLASHES);
-    $response = euyfc_http_request('POST', $url, [
-        'Accept: application/vnd.github+json',
-        'Authorization: Bearer ' . $token,
-        'X-GitHub-Api-Version: 2022-11-28',
-        'Content-Type: application/json'
-    ], $body, false);
-    if ($response['status'] !== 204) {
-        $details = json_decode($response['body'], true);
-        $message = is_array($details) && !empty($details['message']) ? (string)$details['message'] : 'HTTP ' . $response['status'];
-        throw new RuntimeException('GitHub could not start the browser sync: ' . $message);
-    }
-    $queued = [
-        'status' => 'queued',
-        'source' => EUYFC_AUTOMATION_SOURCE,
-        'schedule' => 'Every Sunday at 18:00 Europe/London',
-        'lastAttemptAt' => euyfc_iso_now(),
-        'message' => 'GitHub browser sync queued. Results will appear here when the run finishes.'
-    ];
-    try { euyfc_firebase_put('fulltime_sync_status', $queued, $config); } catch (Throwable $ignored) {}
-    return $queued;
 }
 
 function euyfc_firebase_get(string $path, array $config): array
@@ -790,7 +773,7 @@ function euyfc_input_html(array $config, string $fileKey, string $urlKey, string
         return $contents;
     }
     $url = euyfc_config_value($config, $urlKey, $environment);
-    return euyfc_fetch_fulltime($url !== '' ? $url : $defaultUrl);
+    return euyfc_fetch_fulltime($url !== '' ? $url : $defaultUrl, $config);
 }
 
 function euyfc_write_status(array $status, array $config): void

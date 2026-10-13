@@ -16,16 +16,17 @@ This job checks the configured FA Full-Time pages every Sunday at **18:00 Europe
 
 ## cPanel cron and manual management sync
 
-For cPanel, follow `CPANEL_SETUP.md`. The cPanel importer is pure PHP and needs no Node.js, npm or `proc_open`. The guide covers its PHP checks, private manual-sync key, exact cron fields and cron command. The management portal's **Sync fixtures & results now** button calls `fulltime-sync-cpanel.php` and returns the result to the status cards.
+For cPanel, follow `CPANEL_SETUP.md`. The cPanel importer is pure PHP and needs no Node.js, npm or `proc_open`. Because FA Full-Time blocks the current hosting IP, it can use a ScraperAPI key to fetch the two public pages. The management portal's **Sync fixtures & results now** button and the Sunday cron still run the same tested PHP importer on cPanel.
 
-## GitHub Actions alternative
+## GitHub Actions manual backup
 
-The repository includes `.github/workflows/fulltime-sync.yml`. Once these files are committed to the deployed repository, GitHub runs the job at 6pm London time on Sundays and it can also be run manually from the Actions page.
+The repository includes `.github/workflows/fulltime-sync.yml` as a manually triggered backup. Add `SCRAPERAPI_API_KEY` as an Actions secret before running it from the Actions page.
 
 Set these repository secrets if the Firebase database requires them:
 
 - `FIREBASE_DATABASE_URL` — optional; defaults to the existing Eastbourne team database path.
 - `FIREBASE_AUTH_TOKEN` — optional Firebase auth token.
+- `SCRAPERAPI_API_KEY` — required for the backup workflow because FA Full-Time blocks datacentre IPs.
 
 ## Linux cron alternative
 
