@@ -1,10 +1,10 @@
 # Windows Chrome bot setup
 
-This is the primary FA Full-Time sync method. A small unpacked extension opens the public results and fixtures pages inside your normal Chrome profile, reads the visible match data, and passes it to a private helper on this PC. The helper uses the same duplicate checks and safe merge code already used by the app.
+This is the primary FA Full-Time sync method. A small unpacked extension opens the public results and fixtures pages inside your normal Chrome profile, follows every enabled next-page control, combines all pages and passes the visible match data to a private helper on this PC. The helper uses the same duplicate checks and safe merge code already used by the app.
 
 The bot writes to the app's existing Firebase paths. One successful run therefore updates the management portal, public app, league table, other clubs' cup results and fixtures together.
 
-Eastbourne's U13 Championship fixtures are updated in both the team schedule and shared league fixture list. Eastbourne results remain manual. Obsolete empty imported fixtures are reconciled after postponements, while completed games, cup games, custom fixtures and all matchday data are preserved.
+Eastbourne's U13 Championship fixtures are checked in both the team schedule and shared league fixture list. Eastbourne results remain manual. Empty league fixtures missing from the complete official schedule are proposed for removal, while completed games, fixtures with matchday data, cup games and custom fixtures are preserved. No proposed change goes live until it is approved in the management portal.
 
 ## Before installation
 
@@ -25,25 +25,25 @@ powershell -ExecutionPolicy Bypass -File .\install-desktop-sync.ps1
 
 5. Paste the private sync key when asked. The key is hidden while typing.
 6. Chrome opens its Extensions page and File Explorer opens the supplied `chrome-extension` folder.
-7. Turn on **Developer mode**, click **Load unpacked**, and select the `chrome-extension` folder.
+7. Turn on **Developer mode**. For a new install, click **Load unpacked** and select the `chrome-extension` folder. If it is already installed, click the extension's circular **Reload** button after replacing the files and confirm it shows version **1.1.0**.
 8. The EUYFC extension options open automatically. Paste the same key, click **Save**, return to PowerShell and press Enter.
-9. The installer runs the first live sync. Chrome opens the two Full-Time tabs in your normal profile, reads them, and closes those tabs.
+9. The installer builds the first approval report. Chrome opens the Full-Time tabs, visits every results and fixtures page, reads them and closes the tabs. The app is not changed yet.
 
 The installer then creates two Windows Scheduled Tasks:
 
-- **EUYFC Full-Time Sunday Sync** — runs every Sunday at 6:00 PM.
+- **EUYFC Full-Time Sunday Sync** — scrapes every page every Sunday at 6:00 PM and saves a pending report for approval.
 - **EUYFC Full-Time Portal Helper** — starts when this Windows user signs in and lets the management portal's manual button start the bot.
 
 Keep the unpacked extension enabled. It has access only to `fulltime.thefa.com`, the local helper and Chrome tab/storage features. The first time the online management portal contacts the helper, Chrome may ask whether the site may access devices on the local network. Choose **Allow**. The helper listens only on this PC (`127.0.0.1`) and requires the private sync key.
 
 ## Normal use
 
-- Automatic: leave the PC switched on (or asleep) and this Windows user signed in at 6:00 PM on Sunday. The task opens normal Chrome so the extension can capture the pages. It can wake the PC from sleep, but cannot run while it is shut down.
-- Portal: use Chrome with the EUYFC extension enabled, then open **Management Portal → Results Uploader → Run PC browser sync now**. Enter the key the first time; it is saved in that browser on this PC and removed automatically if the helper rejects it.
-- Direct fallback: double-click `run-desktop-sync.cmd`.
+- Automatic: leave the PC switched on (or asleep) and this Windows user signed in at 6:00 PM on Sunday. The task opens normal Chrome, captures every page and saves the report on this PC for seven days. It can wake the PC from sleep, but cannot run while it is shut down.
+- Portal: use Chrome with the EUYFC extension enabled, then open **Management Portal → Results Uploader**. Choose **Load pending Sunday report**, or **Scrape & preview every page** for a fresh check. Review every Add, Change and Remove line, then choose **Approve & apply report**. Enter the key only the first time; it stays saved in that browser on this PC.
+- Direct fallback: double-click `run-desktop-sync.cmd` to build the same pending report, then load and approve it in the management portal.
 - Recheck browser access: double-click `setup-desktop-browser.cmd`.
 
-Two background Chrome tabs open during a sync and close after both pages have been read. Do not close them while the sync is running. If Full-Time displays a block page or the match rows are incomplete, the bot stops and does not update match data.
+Two background Chrome tabs open during a scrape, one after the other, and close after every available page has been read. Do not close them while it is running. If Full-Time displays a block page, repeats a page, fails to advance, exceeds the 50-page safety limit or contains an unrecognised league team, the bot stops approval and does not update match data.
 
 ## Server upload
 

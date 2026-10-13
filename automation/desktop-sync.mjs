@@ -59,17 +59,18 @@ export async function requestDesktopSync() {
   const config = await loadDesktopConfig();
   await ensureHelper(config);
   await openNormalChrome(config);
-  const response = await fetch(`http://127.0.0.1:${config.servicePort}/sync`, {
+  const previewOnly = !process.argv.includes("--apply-direct");
+  const response = await fetch(`http://127.0.0.1:${config.servicePort}${previewOnly ? "/preview" : "/sync"}`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-Sync-Token": config.syncToken },
     body: "{}",
-    signal: AbortSignal.timeout(240_000)
+    signal: AbortSignal.timeout(660_000)
   });
   const text = await response.text();
   let payload = {};
   try { payload = text ? JSON.parse(text) : {}; } catch {}
   if (!response.ok) throw new Error(payload.message || `Windows sync failed with HTTP ${response.status}`);
-  return payload.status || payload;
+  return previewOnly ? payload : payload.status || payload;
 }
 
 const invokedDirectly = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);

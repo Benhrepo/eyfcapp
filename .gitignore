@@ -1,5 +1,6 @@
 automation/node_modules/
 automation/artifacts/
 automation/.cpanel-sync-config.php
+automation/.pending-desktop-preview.json
 changed_files_only.zip
 *.log

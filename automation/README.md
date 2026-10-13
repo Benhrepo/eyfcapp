@@ -1,6 +1,6 @@
-# FA Full-Time automatic sync
+# FA Full-Time scrape and approval sync
 
-This job checks the configured FA Full-Time pages every Sunday at **18:00 Europe/London** and writes the recognised data to the same Firebase paths used by the app and management portal.
+This job checks every configured FA Full-Time page every Sunday at **18:00 Europe/London** and saves a reconciliation report on the Windows PC. A manager reviews and approves that report before recognised changes are written to the same Firebase paths used by the app and management portal.
 
 ## Rules applied
 
@@ -11,14 +11,14 @@ This job checks the configured FA Full-Time pages every Sunday at **18:00 Europe
 - The league is restricted to the eight official U13 Championship teams configured in both tested importers.
 - Existing records are updated using the Full-Time fixture ID. Date/team matching is used for older records that do not yet have that ID.
 - Eastbourne fixture updates preserve scores, players, goals, assists, MOTM, match reports, photos and all matchday events.
-- A complete official schedule replaces obsolete empty imported league fixtures, preventing duplicates after postponements. Scored matches, cup games, custom fixtures and fixtures containing matchday selections/events are never removed.
+- A complete official schedule proposes removal of obsolete empty league fixtures, preventing duplicates after postponements. Scored matches, cup games, custom fixtures and fixtures containing matchday selections/events are never removed.
 - If Full-Time blocks the request, returns an incomplete page, or no rows can be parsed, the sync stops without changing match data.
 
 ## Windows Chrome bot (primary method)
 
-FA Full-Time blocks the cPanel host, GitHub-hosted runners and the tested proxy service. Follow `DESKTOP_SETUP.md` to install the Windows bot. Its small unpacked extension reads the two public pages in the user's normal Chrome profile, then sends them to the local authenticated helper and existing tested Firebase merge logic.
+FA Full-Time blocks the cPanel host, GitHub-hosted runners and the tested proxy service. Follow `DESKTOP_SETUP.md` to install the Windows bot. Its small unpacked extension follows the pagination on the public results and fixtures pages in the user's normal Chrome profile, then sends every page to the local authenticated helper and existing tested Firebase merge logic.
 
-The installer creates a Sunday 6pm Windows Scheduled Task plus a local authenticated helper for the management portal's **Run PC browser sync now** button. The PC must be switched on (or asleep), and the installing Windows user must be signed in.
+The installer creates a Sunday 6pm Windows Scheduled Task plus a local authenticated helper for the management portal's **Load pending Sunday report**, **Scrape & preview every page**, and **Approve & apply report** controls. The PC must be switched on (or asleep), and the installing Windows user must be signed in.
 
 The older cPanel and GitHub files are retained as reference/fallback implementations, but their external Full-Time requests are currently blocked and should not be scheduled.
 
@@ -46,7 +46,7 @@ npm run sync -- --dry-run
 ## Useful commands
 
 ```sh
-# Ask normal Chrome and the EUYFC extension to run the sync
+# Ask normal Chrome and the EUYFC extension to build a pending approval report
 npm run desktop
 
 # Start the authenticated local helper manually

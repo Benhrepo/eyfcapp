@@ -1,8 +1,11 @@
 #!/usr/bin/env node
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import {
   AUTOMATION_SOURCE,
+  CLUB,
+  isEastbourne,
   mergeMatchList,
   mergeOurFixtures,
   parseFixturesHtml,
@@ -67,8 +70,181 @@ function parseTeamJson(raw) {
   return raw && typeof raw === "object" ? raw : {};
 }
 
-function statusSummary(results, fixtures, writes) {
+function pageCounts(capture = {}) {
   return {
+    results: Math.max(1, Number(capture.resultsPageCount) || 1),
+    fixtures: Math.max(1, Number(capture.fixturesPageCount) || 1)
+  };
+}
+
+function validateParsedCapture(capture) {
+  if (typeof capture?.resultsHtml !== "string" || typeof capture?.fixturesHtml !== "string") {
+    throw new Error("The Full-Time page loader did not return both results and fixtures HTML; no app data was changed");
+  }
+  const results = parseResultsHtml(capture.resultsHtml);
+  const fixtures = parseFixturesHtml(capture.fixturesHtml);
+  if (!results.all.length) throw new Error("No Full-Time results were recognised; no app data was changed");
+  if (!fixtures.all.length) throw new Error("No U13 Championship fixtures were recognised; no app data was changed");
+  return { results, fixtures };
+}
+
+function comparableRecord(record) {
+  if (!record || typeof record !== "object") return record;
+  const copy = structuredClone(record);
+  delete copy.fixtureOrder;
+  return copy;
+}
+
+function recordDiff(beforeList, afterList, scope) {
+  const before = Array.isArray(beforeList) ? beforeList : [];
+  const after = Array.isArray(afterList) ? afterList : [];
+  const beforeById = new Map(before.map((item, index) => [String(item?.id || `before-${index}`), item]));
+  const afterById = new Map(after.map((item, index) => [String(item?.id || `after-${index}`), item]));
+  const changes = [];
+  afterById.forEach((item, id) => {
+    const old = beforeById.get(id);
+    if (!old) changes.push({ action: "added", scope, before: null, after: item });
+    else if (JSON.stringify(comparableRecord(old)) !== JSON.stringify(comparableRecord(item))) changes.push({ action: "updated", scope, before: old, after: item });
+  });
+  beforeById.forEach((item, id) => {
+    if (!afterById.has(id)) changes.push({ action: "removed", scope, before: item, after: null });
+  });
+  return changes;
+}
+
+function displayRecord(record = {}) {
+  const isTeamFixture = Boolean(record.opponent) && !record.homeTeam && !record.awayTeam;
+  const away = isTeamFixture && record.venue === "Away";
+  const homeTeam = isTeamFixture ? (away ? record.opponent : CLUB) : record.homeTeam;
+  const awayTeam = isTeamFixture ? (away ? CLUB : record.opponent) : record.awayTeam;
+  const ourScore = Number(record.ourScore ?? -1);
+  const opponentScore = Number(record.opponentScore ?? -1);
+  const homeScore = isTeamFixture ? (away ? opponentScore : ourScore) : Number(record.homeScore ?? -1);
+  const awayScore = isTeamFixture ? (away ? ourScore : opponentScore) : Number(record.awayScore ?? -1);
+  return {
+    id: String(record.id || ""),
+    fullTimeFixtureId: String(record.fullTimeFixtureId || ""),
+    date: record.date || "TBC",
+    kickOffTime: record.kickOffTime || "",
+    homeTeam: homeTeam || "",
+    awayTeam: awayTeam || "",
+    score: homeScore >= 0 && awayScore >= 0 ? `${homeScore}-${awayScore}` : "vs",
+    competition: record.competition || record.divisionName || "League",
+    venue: record.venueName || record.venue || ""
+  };
+}
+
+function changedFields(before, after) {
+  if (!before || !after) return [];
+  const left = displayRecord(before);
+  const right = displayRecord(after);
+  const labels = { date: "date", kickOffTime: "kick-off", homeTeam: "home team", awayTeam: "away team", score: "score", competition: "competition", venue: "venue" };
+  return Object.keys(labels).filter(key => String(left[key] || "") !== String(right[key] || "")).map(key => ({ field: labels[key], before: left[key] || "—", after: right[key] || "—" }));
+}
+
+function changeFinding(change, officialFixtures = []) {
+  const record = change.after || change.before || {};
+  const fallbackKey = [record.date, record.homeTeam || record.opponent, record.awayTeam, record.kickOffTime].join(":");
+  const officialDuplicate = change.action === "removed" && record.fullTimeFixtureId
+    && officialFixtures.some(fixture => String(fixture.fullTimeFixtureId || "") === String(record.fullTimeFixtureId));
+  return {
+    key: `${change.scope}:${change.action}:${record.id || record.fullTimeFixtureId || fallbackKey}`,
+    action: change.action,
+    scope: change.scope,
+    ...displayRecord(record),
+    changedFields: changedFields(change.before, change.after),
+    message: change.action === "removed"
+      ? officialDuplicate ? "Duplicate app record; keep the single official Full-Time fixture." : "Not present in the complete Full-Time fixture list; remove this empty league fixture."
+      : change.action === "added"
+        ? "New Full-Time record."
+        : "Full-Time differs from the app."
+  };
+}
+
+function parsedFinding(record, scope, action = "unchanged", message = "Already matches Full-Time.") {
+  const fallbackKey = [record.date, record.homeTeam || record.opponent, record.awayTeam, record.kickOffTime].join(":");
+  return {
+    key: `${scope}:${action}:${record.id || record.fullTimeFixtureId || fallbackKey}`,
+    action,
+    scope,
+    ...displayRecord(record),
+    changedFields: [],
+    message
+  };
+}
+
+export async function buildSyncPreview(capture, currentData = null) {
+  const { results, fixtures } = validateParsedCapture(capture);
+  const current = currentData || await (async () => {
+    const [league, cups, team] = await Promise.all([
+      firebaseGetWithEtag("league_matches"),
+      firebaseGetWithEtag("cup_matches"),
+      firebaseGetWithEtag("json")
+    ]);
+    return { league: league.value, cups: cups.value, team: parseTeamJson(team.value) };
+  })();
+  const leagueResults = mergeMatchList(current.league, results.league, "result");
+  const leagueFixtures = mergeMatchList(leagueResults.value, fixtures.all, "fixture", { reconcile: true });
+  const cupResults = mergeMatchList(current.cups, results.cups, "result");
+  const teamFixtures = mergeOurFixtures(current.team, fixtures.ours);
+  const changes = [
+    ...recordDiff(current.league, leagueFixtures.value, "League results & fixtures"),
+    ...recordDiff(current.cups, cupResults.value, "Other clubs' cup results"),
+    ...recordDiff(current.team?.fixtures, teamFixtures.value.fixtures, "Eastbourne fixture schedule")
+  ];
+  const findings = changes.map(change => changeFinding(change, fixtures.all));
+  const changedOfficialIds = new Set(changes.flatMap(change => [change.before, change.after])
+    .filter(Boolean).flatMap(record => [String(record.id || ""), String(record.fullTimeFixtureId || "")]).filter(Boolean));
+  const addIfUnchanged = (record, scope) => {
+    if (!changedOfficialIds.has(String(record.id || "")) && !changedOfficialIds.has(String(record.fullTimeFixtureId || ""))) {
+      findings.push(parsedFinding(record, scope));
+    }
+  };
+  results.league.forEach(record => addIfUnchanged(record, "League result"));
+  results.cups.forEach(record => addIfUnchanged(record, "Other clubs' cup result"));
+  fixtures.all.forEach(record => addIfUnchanged(record, isEastbourne(record.homeTeam) || isEastbourne(record.awayTeam) ? "Eastbourne league fixture" : "League fixture"));
+  results.ignored.forEach(record => findings.push(parsedFinding(record, "Eastbourne result", "ignored", "Eastbourne results stay manual and will not be imported.")));
+  [...results.rejected, ...fixtures.rejected].forEach((record, index) => findings.push({
+    key: `rejected:${index}:${record.homeTeam || "unknown"}`,
+    action: "warning",
+    scope: "Unrecognised Full-Time row",
+    ...displayRecord(record),
+    changedFields: [],
+    message: record.rejected === "unknown-league-team" ? "A team was not recognised as a U13 Championship team." : "This row could not be imported."
+  }));
+  const summary = findings.reduce((totals, finding) => {
+    totals[finding.action] = (totals[finding.action] || 0) + 1;
+    return totals;
+  }, { added: 0, updated: 0, removed: 0, unchanged: 0, ignored: 0, warning: 0 });
+  const pages = pageCounts(capture);
+  const approvalSignature = createHash("sha256").update(JSON.stringify({ pages, counts: {
+    results: results.all.length,
+    fixtures: fixtures.all.length,
+    rejected: results.rejected.length + fixtures.rejected.length
+  }, findings })).digest("hex");
+  return {
+    sourcePages: pages,
+    counts: {
+      scrapedResults: results.all.length,
+      leagueResults: results.league.length,
+      cupResults: results.cups.length,
+      ignoredEastbourneResults: results.ignored.length,
+      scrapedFixtures: fixtures.all.length,
+      eastbourneFixtures: fixtures.ours.length,
+      otherLeagueFixtures: fixtures.others.length,
+      rejected: results.rejected.length + fixtures.rejected.length
+    },
+    summary,
+    findings,
+    approvalSignature,
+    safeToApply: summary.warning === 0,
+    message: `${pages.results} results page${pages.results === 1 ? "" : "s"} and ${pages.fixtures} fixtures page${pages.fixtures === 1 ? "" : "s"} checked. Review every finding before applying.`
+  };
+}
+
+function statusSummary(results, fixtures, writes, capture = {}) {
+  return {
+    sourcePages: pageCounts(capture),
     results: {
       scraped: results.all.length,
       league: results.league.length,
@@ -149,28 +325,20 @@ export async function runSync(options = {}) {
   const attemptAt = new Date().toISOString();
   console.log(`FA Full-Time sync started at ${attemptAt}${dryRun ? " (dry run)" : ""}.`);
   try {
-    let resultsHtml;
-    let fixturesHtml;
+    let capture = {};
     if (typeof options.loadHtml === "function") {
-      const loaded = await options.loadHtml({
+      capture = await options.loadHtml({
         resultsUrl: process.env.FULLTIME_RESULTS_URL || RESULTS_URL,
         fixturesUrl: process.env.FULLTIME_FIXTURES_URL || FIXTURES_URL
       });
-      resultsHtml = loaded?.resultsHtml;
-      fixturesHtml = loaded?.fixturesHtml;
     } else {
-      [resultsHtml, fixturesHtml] = await Promise.all([
+      const [resultsHtml, fixturesHtml] = await Promise.all([
         inputHtml("--results-file", process.env.FULLTIME_RESULTS_URL || RESULTS_URL),
         inputHtml("--fixtures-file", process.env.FULLTIME_FIXTURES_URL || FIXTURES_URL)
       ]);
+      capture = { resultsHtml, fixturesHtml, resultsPageCount: 1, fixturesPageCount: 1 };
     }
-    if (typeof resultsHtml !== "string" || typeof fixturesHtml !== "string") {
-      throw new Error("The Full-Time page loader did not return both results and fixtures HTML; no app data was changed");
-    }
-    const results = parseResultsHtml(resultsHtml);
-    const fixtures = parseFixturesHtml(fixturesHtml);
-    if (!results.all.length) throw new Error("No Full-Time results were recognised; no app data was changed");
-    if (!fixtures.all.length) throw new Error("No U13 Championship fixtures were recognised; no app data was changed");
+    const { results, fixtures } = validateParsedCapture(capture);
 
     let leagueResults;
     let leagueFixtures;
@@ -190,7 +358,7 @@ export async function runSync(options = {}) {
       cupResults: { stats: cupWrite.stats },
       ourFixtures: { stats: teamWrite.stats }
     };
-    const summary = statusSummary(results, fixtures, writes);
+    const summary = statusSummary(results, fixtures, writes, capture);
     const completedAt = new Date().toISOString();
     const status = {
       status: dryRun ? "dry-run" : "success",

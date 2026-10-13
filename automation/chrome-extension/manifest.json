@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "EUYFC Full-Time Sync",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Reads the public FA Full-Time results and fixtures pages for the EUYFC app.",
   "permissions": ["alarms", "scripting", "storage", "tabs"],
   "host_permissions": [

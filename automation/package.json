@@ -1,6 +1,6 @@
 {
   "name": "euyfc-fulltime-sync",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "type": "module",
   "description": "Scheduled FA Full-Time results and fixtures sync for the EUYFC app.",

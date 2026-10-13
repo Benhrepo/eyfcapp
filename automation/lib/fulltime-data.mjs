@@ -317,10 +317,9 @@ function actionStats() {
   return { added: 0, updated: 0, unchanged: 0, removed: 0 };
 }
 
-function emptyImportedLeagueListFixture(item) {
-  const imported = clean(item?.source) === AUTOMATION_SOURCE || /^(?:ft-|fa-fixture-)/.test(clean(item?.id));
-  return imported
-    && clean(item?.competition || "League").toLowerCase() === "league"
+function emptyLeagueListFixture(item) {
+  return clean(item?.competition || "League").toLowerCase() === "league"
+    && item?.customFixture !== true
     && Number(item?.homeScore ?? -1) < 0
     && Number(item?.awayScore ?? -1) < 0;
 }
@@ -341,7 +340,7 @@ export function mergeMatchList(current, rows, mode, options = {}) {
   if (mode === "fixture" && options.reconcile === true && rows.length >= 8) {
     list = list.filter(item => {
       if (rows.some(row => matchesOfficialFixture(item, row))) return true;
-      if (!emptyImportedLeagueListFixture(item)) return true;
+      if (!emptyLeagueListFixture(item)) return true;
       stats.removed += 1;
       return false;
     });
@@ -394,9 +393,13 @@ function fixtureDataWeight(fixture) {
   return weight;
 }
 
-function importedOurLeagueFixture(fixture) {
+function reconcilableOurLeagueFixture(fixture) {
   return clean(fixture?.competition || "League").toLowerCase() === "league"
-    && fixture?.customFixture !== true
+    && fixture?.customFixture !== true;
+}
+
+function importedOurLeagueFixture(fixture) {
+  return reconcilableOurLeagueFixture(fixture)
     && (clean(fixture?.source) === AUTOMATION_SOURCE || /^(?:ft-|fa-fixture-)/.test(clean(fixture?.id)));
 }
 
@@ -497,7 +500,7 @@ export function mergeOurFixtures(team, rows) {
   });
   if (rows.length >= 8) {
     fixtures = fixtures.filter((fixture, index) => {
-      if (used.has(index) || !importedOurLeagueFixture(fixture) || !emptyOurFixture(fixture)) return true;
+      if (used.has(index) || !reconcilableOurLeagueFixture(fixture) || !emptyOurFixture(fixture)) return true;
       stats.removed += 1;
       return false;
     });

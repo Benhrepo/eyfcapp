@@ -9,7 +9,8 @@ if exist "%ProgramFiles%\Google\Chrome\Application\chrome.exe" (
 ) else (
   start "" msedge.exe "edge://extensions/"
 )
-echo Turn on Developer mode, click Load unpacked, and select:
+echo Turn on Developer mode. If the extension is already installed, click its circular Reload button and confirm version 1.1.0.
+echo Otherwise click Load unpacked and select:
 echo %~dp0chrome-extension
 echo Then open the extension options and save the same private sync key.
 pause

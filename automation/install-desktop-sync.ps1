@@ -134,7 +134,7 @@ $syncAction = New-ScheduledTaskAction `
   -WorkingDirectory $automationDirectory
 $syncTrigger = New-ScheduledTaskTrigger -Weekly -WeeksInterval 1 -DaysOfWeek Sunday -At "6:00 PM"
 $syncTask = New-ScheduledTask -Action $syncAction -Trigger $syncTrigger -Principal $principal -Settings $settings `
-  -Description "Checks FA Full-Time every Sunday at 18:00 and updates the EUYFC app safely."
+  -Description "Checks every FA Full-Time page every Sunday at 18:00 and stages a report for management approval."
 Register-ScheduledTask -TaskName $scheduledTaskName -InputObject $syncTask -Force | Out-Null
 
 $serviceAction = New-ScheduledTaskAction `
@@ -175,21 +175,21 @@ if (-not $SkipBrowserCheck) {
   Start-Process explorer.exe -ArgumentList $extensionDirectory
   Start-Process $browserPath -ArgumentList "chrome://extensions/"
   Write-Host "1. Turn on Developer mode at the top-right of the Chrome extensions page."
-  Write-Host "2. Click Load unpacked and select this folder:"
+  Write-Host "2. If EUYFC Full-Time Sync is already installed, click its circular Reload button. Otherwise click Load unpacked and select:"
   Write-Host "   $extensionDirectory" -ForegroundColor Yellow
-  Write-Host "3. The EUYFC extension options open automatically. Paste the same private sync key and click Save."
-  Read-Host "Press Enter here only after the extension key says Saved"
+  Write-Host "3. Confirm the extension shows version 1.1.0. For a new install, paste the same private sync key in its options and click Save."
+  Read-Host "Press Enter after version 1.1.0 is loaded and the extension key is saved or retained"
 
-  Write-Step "Running the first live sync through normal Chrome"
-  Write-Host "Chrome will open the public results and fixtures tabs and close them after reading."
-  & $nodePath (Join-Path $automationDirectory "desktop-sync.mjs")
+  Write-Step "Building the first approval report through normal Chrome"
+  Write-Host "Chrome will visit every public results and fixtures page, then save a report without changing the app."
+  & $nodePath (Join-Path $automationDirectory "desktop-sync.mjs") --preview-only
   if ($LASTEXITCODE -ne 0) {
-    throw "The first Chrome-extension sync failed safely. No incomplete data was applied. Check the extension icon/message, then run run-desktop-sync.cmd."
+    throw "The first Chrome-extension report failed safely. No data was applied. Check the extension icon/message, then retry from the management portal."
   }
 }
 
 Write-Host "`nInstallation complete." -ForegroundColor Green
-Write-Host "- Automatic sync: Sundays at 6:00 PM while this Windows user is logged in."
-Write-Host "- Manual sync: use the management portal button or run run-desktop-sync.cmd."
+Write-Host "- Automatic scrape: Sundays at 6:00 PM while this Windows user is logged in; it waits for portal approval."
+Write-Host "- Manual scrape and approval: use the management portal."
 Write-Host "- Chrome must keep the unpacked EUYFC extension enabled."
 Write-Host "- Keep this automation folder in its current location."

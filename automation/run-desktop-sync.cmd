@@ -10,10 +10,10 @@ if errorlevel 1 (
 node desktop-sync.mjs
 if errorlevel 1 (
   echo.
-  echo The sync failed safely. No incomplete Full-Time data was applied.
+  echo The report failed safely. No Full-Time data was applied.
   pause
   exit /b 1
 )
 echo.
-echo Sync complete.
+echo Scrape complete. Open Results Uploader in the management portal, load the pending report, review it and approve it.
 pause

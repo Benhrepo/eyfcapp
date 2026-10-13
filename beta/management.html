@@ -383,6 +383,12 @@
     .upload-action.add { background: rgba(34,197,94,.13); color: #7df394; }
     .upload-action.update { background: rgba(255,211,24,.14); color: var(--yellow); }
     .upload-action.invalid { background: rgba(239,68,68,.14); color: #ff8d8d; }
+    .scrape-report { margin-bottom: 14px; border-color: rgba(255,211,24,.3); }
+    .scrape-report-table { min-width: 1180px; }
+    .scrape-report-table tr.remove { background: rgba(239,68,68,.055); }
+    .scrape-report-table tr.update { background: rgba(255,211,24,.04); }
+    .scrape-change-list { display: grid; gap: 3px; min-width: 220px; font-size: 11px; color: var(--muted); }
+    .scrape-change-list b { color: #ffcc80; }
     .upload-draft-row.invalid { background: rgba(239,68,68,.055); }
     .upload-draft-row.excluded { opacity: .48; }
     .upload-draft-row.duplicate { background: rgba(255,211,24,.045); }
@@ -2465,7 +2471,7 @@
       ["search", "Search Portal", "Search every team and fixture/result record in the database."],
       ["raw", "Raw Data", "Direct JSON editor for advanced fixes."]
     ];
-    const state = { team: {}, league: [], cups: [], search: [], favoriteTeams: [], broadcast: {}, contacts: [], trainingSessions: [], fulltimeSync: {}, active: "dashboard", dashboardView: "overview", motmDashboard: { competition: "all", outcome: "all", sort: "awards", playerId: "" }, query: "", searchLimit: 80, watchlistQuery: "", searchTeamQuery: "", searchSelectedTeam: "", teamSnapshot: [], lastPushSnapshot: null, leagueTeam: "", fixtureTab: "fixtures", badgeFilter: "all", badgeSearch: "", playerIntelligence: { scope: "season", sort: "impact", query: "" }, fixtureUploadForm: { target: "fulltime-results", leagueName: "", divisionName: "", defaultCompetition: "League", source: "" }, fixtureUploadDraft: [], fixtureUploadPreviewed: false };
+    const state = { team: {}, league: [], cups: [], search: [], favoriteTeams: [], broadcast: {}, contacts: [], trainingSessions: [], fulltimeSync: {}, fulltimeScrapePreview: null, fulltimeScrapePreviewId: "", active: "dashboard", dashboardView: "overview", motmDashboard: { competition: "all", outcome: "all", sort: "awards", playerId: "" }, query: "", searchLimit: 80, watchlistQuery: "", searchTeamQuery: "", searchSelectedTeam: "", teamSnapshot: [], lastPushSnapshot: null, leagueTeam: "", fixtureTab: "fixtures", badgeFilter: "all", badgeSearch: "", playerIntelligence: { scope: "season", sort: "impact", query: "" }, fixtureUploadForm: { target: "fulltime-results", leagueName: "", divisionName: "", defaultCompetition: "League", source: "" }, fixtureUploadDraft: [], fixtureUploadPreviewed: false };
     const DEFAULT_FORMATION_SHAPE = "3-3-2";
     function parseFormationShape(value) {
       const raw = String(value || "").trim().replace(/[–—]/g, "-");
@@ -5710,26 +5716,51 @@
       const fixtureTotal = Number(sync.fixtures?.scraped || 0);
       const changes = [resultChanges, cupChanges, ourFixtureChanges, otherFixtureChanges].reduce((total, group) => total + Number(group.added || 0) + Number(group.updated || 0) + Number(group.removed || 0), 0);
       return `<div class="fulltime-auto-status">
-        <div class="fulltime-auto-card primary ${statusClass}"><span>Windows PC · Sunday 6pm sync</span><strong>${esc(statusLabel)}</strong><small>${esc(sync.message || "The Chrome extension bot will check Full-Time results and U13 Championship fixtures automatically.")}</small><small>${esc(when)}</small></div>
+        <div class="fulltime-auto-card primary ${statusClass}"><span>Windows PC · Sunday 6pm scrape</span><strong>${esc(statusLabel)}</strong><small>${esc(sync.message || "The Chrome extension checks every Full-Time page and waits for your approval before publishing.")}</small><small>${esc(when)}</small></div>
         <div class="fulltime-auto-card"><span>Results checked</span><strong>${resultTotal}</strong><small>${Number(sync.results?.ignoredEastbourne || 0)} Eastbourne result${Number(sync.results?.ignoredEastbourne || 0) === 1 ? "" : "s"} safely ignored</small></div>
         <div class="fulltime-auto-card"><span>League fixtures checked</span><strong>${fixtureTotal}</strong><small>${Number(sync.fixtures?.eastbourne || 0)} Eastbourne · ${Number(sync.fixtures?.otherLeague || 0)} other</small></div>
         <div class="fulltime-auto-card"><span>Changes applied</span><strong>${changes}</strong><small>Additions and corrections from the latest run</small></div>
       </div>`;
     }
-    function fullTimeSyncEndpoint() {
-      return "http://127.0.0.1:32187/sync";
+    function fullTimeSyncEndpoint(path = "/sync") {
+      return `http://127.0.0.1:32187${path}`;
+    }
+    async function loadPendingFullTimePreview() {
+      let token = localStorage.getItem("fulltimeSyncToken") || "";
+      if (!token) token = prompt("Enter the private sync key for the Windows bot. It will be saved in this browser on this PC.", "") || "";
+      if (!token) return;
+      localStorage.setItem("fulltimeSyncToken", token);
+      setSync("Checking this PC for a pending Sunday report...");
+      try {
+        const response = await fetch(fullTimeSyncEndpoint("/pending-preview"), { cache: "no-store", headers: { "X-Sync-Token": token } });
+        const payload = await response.json();
+        if (!response.ok) {
+          if (response.status === 401) localStorage.removeItem("fulltimeSyncToken");
+          throw new Error(payload.message || `Pending report check failed with HTTP ${response.status}`);
+        }
+        if (payload.status !== "pending" || !payload.preview) return toast(payload.message || "There is no pending report on this PC");
+        state.fulltimeScrapePreview = payload.preview;
+        state.fulltimeScrapePreviewId = payload.previewId || "";
+        setSync("Pending Full-Time report loaded");
+        renderUpload();
+        bindSectionActions();
+        toast("Pending Sunday report loaded — review it before approval");
+      } catch (error) {
+        setSync(`Could not load pending report: ${error.message}`);
+        toast(`Could not load pending report: ${error.message}`);
+      }
     }
     async function runFullTimeSyncNow() {
       captureFixtureUploadForm();
-      const storedToken = localStorage.getItem("fulltimeSyncToken") || "";
-      const token = prompt("Enter the existing private sync key for the Windows bot. It is saved in this browser on this PC so you do not need to enter it every time.", storedToken);
+      let token = localStorage.getItem("fulltimeSyncToken") || "";
+      if (!token) token = prompt("Enter the private sync key for the Windows bot. It will be saved in this browser on this PC.", "") || "";
       if (!token) return;
       localStorage.setItem("fulltimeSyncToken", token);
       const button = $("fullTimeSyncNowBtn");
-      if (button) { button.disabled = true; button.textContent = "Starting PC browser…"; }
-      setSync("Windows Full-Time browser sync running...");
+      if (button) { button.disabled = true; button.textContent = "Scraping every Full-Time page…"; }
+      setSync("Scraping every results and fixtures page. Nothing is being changed yet...");
       try {
-        const response = await fetch(fullTimeSyncEndpoint(), {
+        const response = await fetch(fullTimeSyncEndpoint("/preview"), {
           method: "POST",
           cache: "no-store",
           headers: { "Content-Type": "application/json", "X-Sync-Token": token },
@@ -5743,24 +5774,82 @@
           const fallback = `Windows bot sync failed with HTTP ${response.status}${response.statusText ? ` (${response.statusText})` : ""}`;
           throw new Error(payload.message || fallback);
         }
-        state.fulltimeSync = payload.status && typeof payload.status === "object" ? payload.status : payload;
-        setSync(`Full-Time synced ${new Date().toLocaleTimeString()}`);
-        toast(state.fulltimeSync.message || "Fixtures and results synced");
+        state.fulltimeScrapePreview = payload.preview || null;
+        state.fulltimeScrapePreviewId = payload.previewId || "";
+        setSync(`Full-Time preview ready ${new Date().toLocaleTimeString()}`);
+        const report = state.fulltimeScrapePreview;
+        toast(report ? `Preview ready: ${report.summary?.added || 0} add, ${report.summary?.updated || 0} change, ${report.summary?.removed || 0} remove` : "Scrape preview ready");
       } catch (error) {
         const message = /failed to fetch|networkerror|load failed/i.test(String(error.message || error))
           ? "The Windows sync helper is not running on this PC. Run install-desktop-sync.ps1, enable the EUYFC Chrome extension, and allow the browser's local-network prompt if shown."
           : error.message;
-        state.fulltimeSync = Object.assign({}, state.fulltimeSync, { status: "failed", lastAttemptAt: new Date().toISOString(), message });
-        setSync(`Full-Time sync failed: ${message}`);
-        toast(`Sync failed: ${message}`);
+        setSync(`Full-Time preview failed: ${message}`);
+        toast(`Preview failed: ${message}`);
       } finally {
+        renderUpload();
+        bindSectionActions();
+      }
+    }
+    function fullTimeScrapePreviewHtml() {
+      const preview = state.fulltimeScrapePreview;
+      if (!preview) return "";
+      const summary = preview.summary || {};
+      const counts = preview.counts || {};
+      const pages = preview.sourcePages || {};
+      const actionLabel = action => ({ added: "Add", updated: "Change", removed: "Remove", unchanged: "No change", ignored: "Ignored", warning: "Check needed" }[action] || action);
+      const actionClass = action => action === "added" ? "add" : action === "updated" ? "update" : ["removed", "warning"].includes(action) ? "invalid" : "";
+      const findings = Array.isArray(preview.findings) ? preview.findings : [];
+      const priority = { warning: 0, removed: 1, updated: 2, added: 3, ignored: 4, unchanged: 5 };
+      const rows = [...findings].sort((left, right) => (priority[left.action] ?? 9) - (priority[right.action] ?? 9) || String(left.date).localeCompare(String(right.date))).map(finding => {
+        const changes = Array.isArray(finding.changedFields) && finding.changedFields.length
+          ? `<div class="scrape-change-list">${finding.changedFields.map(change => `<span><b>${esc(change.field)}</b>: ${esc(change.before)} → ${esc(change.after)}</span>`).join("")}</div>`
+          : `<span class="hint">${esc(finding.message || "")}</span>`;
+        return `<tr class="${finding.action === "removed" ? "remove" : finding.action === "updated" ? "update" : ""}"><td><span class="upload-action ${actionClass(finding.action)}">${esc(actionLabel(finding.action))}</span></td><td>${esc(finding.scope || "")}</td><td>${esc(finding.date || "TBC")}</td><td>${esc(finding.kickOffTime || "")}</td><td>${esc(finding.homeTeam || "")}</td><td><strong>${esc(finding.score || "vs")}</strong></td><td>${esc(finding.awayTeam || "")}</td><td>${esc(finding.competition || "")}</td><td>${changes}</td></tr>`;
+      }).join("");
+      return `<div class="panel scrape-report"><div class="panel-head"><div><h3>Full-Time reconciliation report</h3><p class="hint">All ${Number(pages.results || 0)} results page${Number(pages.results || 0) === 1 ? "" : "s"} and ${Number(pages.fixtures || 0)} fixtures page${Number(pages.fixtures || 0) === 1 ? "" : "s"} were combined. Review this report before anything goes live.</p></div><div class="toolbar"><button class="btn" id="fullTimeApplyPreviewBtn" type="button" ${preview.safeToApply === false ? "disabled" : ""}>Approve & apply report</button></div></div>
+        <div class="fulltime-auto-status"><div class="fulltime-auto-card"><span>Add</span><strong>${Number(summary.added || 0)}</strong><small>New records</small></div><div class="fulltime-auto-card"><span>Change</span><strong>${Number(summary.updated || 0)}</strong><small>Date, time, score or details</small></div><div class="fulltime-auto-card"><span>Remove</span><strong>${Number(summary.removed || 0)}</strong><small>Empty league fixtures absent from Full-Time</small></div><div class="fulltime-auto-card"><span>Scraped</span><strong>${Number(counts.scrapedResults || 0) + Number(counts.scrapedFixtures || 0)}</strong><small>${Number(summary.ignored || 0)} Eastbourne result${Number(summary.ignored || 0) === 1 ? "" : "s"} ignored · ${Number(summary.warning || 0)} warning${Number(summary.warning || 0) === 1 ? "" : "s"}</small></div></div>
+        ${preview.safeToApply === false ? `<div class="upload-policy" style="border-color:rgba(239,68,68,.4);background:rgba(239,68,68,.08);margin-bottom:12px"><strong>Approval paused</strong><span>At least one Full-Time row was not recognised. No data can be applied until a clean preview is produced.</span></div>` : ""}
+        <div class="table-wrap" style="max-height:620px"><table class="scrape-report-table"><thead><tr><th>Action</th><th>App area</th><th>Date</th><th>Time</th><th>Home</th><th>Score</th><th>Away</th><th>Competition</th><th>Finding</th></tr></thead><tbody>${rows || `<tr><td colspan="9">No findings.</td></tr>`}</tbody></table></div>
+      </div>`;
+    }
+    async function applyFullTimeScrapePreview() {
+      const previewId = state.fulltimeScrapePreviewId;
+      const token = localStorage.getItem("fulltimeSyncToken") || "";
+      if (!previewId || !token) return toast("Build a fresh scrape preview first");
+      const removals = Number(state.fulltimeScrapePreview?.summary?.removed || 0);
+      if (!confirm(`Apply this complete Full-Time report now?${removals ? ` This will remove ${removals} empty league fixture record${removals === 1 ? "" : "s"} shown in the report.` : ""}`)) return;
+      const button = $("fullTimeApplyPreviewBtn");
+      if (button) { button.disabled = true; button.textContent = "Applying approved report…"; }
+      setSync("Applying the approved Full-Time report...");
+      try {
+        const response = await fetch(fullTimeSyncEndpoint("/apply-preview"), {
+          method: "POST",
+          cache: "no-store",
+          headers: { "Content-Type": "application/json", "X-Sync-Token": token },
+          body: JSON.stringify({ previewId })
+        });
+        const responseText = await response.text();
+        let payload = {};
+        try { payload = responseText ? JSON.parse(responseText) : {}; } catch {}
+        if (!response.ok) {
+          if (response.status === 401) localStorage.removeItem("fulltimeSyncToken");
+          throw new Error(payload.message || `Applying the report failed with HTTP ${response.status}`);
+        }
+        state.fulltimeScrapePreview = null;
+        state.fulltimeScrapePreviewId = "";
+        state.fulltimeSync = payload.status && typeof payload.status === "object" ? payload.status : payload;
+        toast(state.fulltimeSync.message || "Approved Full-Time report applied");
+        await loadAll();
+      } catch (error) {
+        setSync(`Could not apply report: ${error.message}`);
+        toast(`Could not apply report: ${error.message}`);
         renderUpload();
         bindSectionActions();
       }
     }
     function renderUpload() {
       const form = state.fixtureUploadForm || {};
-      $("upload").innerHTML = `${fullTimeSyncStatusHtml()}<div class="panel"><div class="panel-head"><div><h3>Intelligent Fixture & Results Uploader</h3><p class="hint">Run the Windows Chrome extension automatically or on demand from this PC. The paste-and-preview importer remains available as a fallback.</p></div><div class="toolbar"><button class="btn secondary small" id="fullTimeSyncNowBtn" type="button">↻ Run PC browser sync now</button><button class="btn secondary small" id="uploadPreviewBtn" type="button">Build editable preview</button><button class="btn small" id="uploadPushBtn" type="button" disabled>${form.target === "fulltime" ? "Upload selected & Push" : "Upload Results & Push"}</button></div></div>
+      $("upload").innerHTML = `${fullTimeSyncStatusHtml()}${fullTimeScrapePreviewHtml()}<div class="panel"><div class="panel-head"><div><h3>Intelligent Fixture & Results Uploader</h3><p class="hint">Scrape every Full-Time page into a reconciliation report, then approve it before changes go live. The paste-and-preview importer remains available as a fallback.</p></div><div class="toolbar"><button class="btn secondary small" id="fullTimePendingPreviewBtn" type="button">Load pending Sunday report</button><button class="btn secondary small" id="fullTimeSyncNowBtn" type="button">↻ Scrape & preview every page</button><button class="btn secondary small" id="uploadPreviewBtn" type="button">Build editable preview</button><button class="btn small" id="uploadPushBtn" type="button" disabled>${form.target === "fulltime" ? "Upload selected & Push" : "Upload Results & Push"}</button></div></div>
         <div class="upload-rules">
           <span class="upload-rule"><strong>13.2 / U13 Championship</strong> → League</span>
           <span class="upload-rule"><strong>Anything else</strong> → Other Clubs' Cup Results</span>
@@ -6931,6 +7020,10 @@
       };
       const fullTimeSyncNowBtn = $("fullTimeSyncNowBtn");
       if (fullTimeSyncNowBtn) fullTimeSyncNowBtn.onclick = runFullTimeSyncNow;
+      const fullTimePendingPreviewBtn = $("fullTimePendingPreviewBtn");
+      if (fullTimePendingPreviewBtn) fullTimePendingPreviewBtn.onclick = loadPendingFullTimePreview;
+      const fullTimeApplyPreviewBtn = $("fullTimeApplyPreviewBtn");
+      if (fullTimeApplyPreviewBtn) fullTimeApplyPreviewBtn.onclick = applyFullTimeScrapePreview;
       const uploadPushBtn = $("uploadPushBtn");
       if (uploadPushBtn) uploadPushBtn.onclick = () => { captureFixtureUploadForm(); uploadResultsAndPush(); };
       ["uploadLeagueName", "uploadDivisionName", "uploadCompetition", "uploadSource"].forEach(id => {

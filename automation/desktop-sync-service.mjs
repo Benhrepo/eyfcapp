@@ -1,13 +1,37 @@
 #!/usr/bin/env node
 import { randomUUID, timingSafeEqual } from "node:crypto";
 import { createServer } from "node:http";
+import { readFile, rename, unlink, writeFile } from "node:fs/promises";
+import path from "node:path";
 import { loadDesktopConfig, applyDesktopEnvironment } from "./lib/desktop-config.mjs";
-import { FIXTURES_URL, RESULTS_URL, runSync } from "./fulltime-sync.mjs";
+import { buildSyncPreview, FIXTURES_URL, RESULTS_URL, runSync } from "./fulltime-sync.mjs";
 
 const config = await loadDesktopConfig();
 applyDesktopEnvironment(config);
 let running = null;
 let captureJob = null;
+const PENDING_PREVIEW_PATH = path.join(config.automationDirectory, ".pending-desktop-preview.json");
+let pendingPreview = null;
+const PREVIEW_LIFETIME_MS = 7 * 24 * 60 * 60 * 1000;
+
+async function loadPendingPreview() {
+  try {
+    const value = JSON.parse(await readFile(PENDING_PREVIEW_PATH, "utf8"));
+    if (value?.id && value?.capture && value?.preview && Date.now() <= Date.parse(value.expiresAt)) pendingPreview = value;
+    else await unlink(PENDING_PREVIEW_PATH).catch(() => {});
+  } catch (error) {
+    if (error?.code !== "ENOENT") console.warn(`Could not load the pending preview: ${error.message}`);
+  }
+}
+
+async function savePendingPreview() {
+  const temporary = `${PENDING_PREVIEW_PATH}.tmp`;
+  await writeFile(temporary, `${JSON.stringify(pendingPreview)}\n`, { encoding: "utf8", mode: 0o600 });
+  await unlink(PENDING_PREVIEW_PATH).catch(error => { if (error?.code !== "ENOENT") throw error; });
+  await rename(temporary, PENDING_PREVIEW_PATH);
+}
+
+await loadPendingPreview();
 
 function headers(origin = "") {
   return {
@@ -36,12 +60,12 @@ function tokenMatches(provided) {
   return expectedBuffer.length === providedBuffer.length && timingSafeEqual(expectedBuffer, providedBuffer);
 }
 
-async function readJsonBody(request, limit = 20 * 1024 * 1024) {
+async function readJsonBody(request, limit = 50 * 1024 * 1024) {
   const chunks = [];
   let size = 0;
   for await (const chunk of request) {
     size += chunk.length;
-    if (size > limit) throw new Error("Captured Full-Time pages exceeded the 20 MB safety limit.");
+    if (size > limit) throw new Error("Captured Full-Time pages exceeded the 50 MB safety limit.");
     chunks.push(chunk);
   }
   const raw = Buffer.concat(chunks).toString("utf8");
@@ -54,8 +78,8 @@ function waitForChromeCapture() {
     const id = randomUUID();
     const timeout = setTimeout(() => {
       if (captureJob?.id === id) captureJob = null;
-      reject(new Error("The EUYFC Chrome extension did not answer within three minutes. Confirm it is installed, its sync key is saved, and normal Chrome is open. No app data was changed."));
-    }, 180_000);
+      reject(new Error("The EUYFC Chrome extension did not answer within ten minutes. Confirm it is installed, reloaded, its sync key is saved, and normal Chrome is open. No app data was changed."));
+    }, 600_000);
     captureJob = {
       id,
       createdAt: new Date().toISOString(),
@@ -73,13 +97,61 @@ function waitForChromeCapture() {
   });
 }
 
-async function runChromeExtensionSync() {
-  return runSync({
-    source: "FA Full-Time Windows Chrome Extension",
-    schedule: "Windows PC every Sunday at 18:00 Europe/London",
-    pushSource: "fulltime-desktop-extension",
-    loadHtml: waitForChromeCapture
-  });
+const syncOptions = loadHtml => ({
+  source: "FA Full-Time Windows Chrome Extension",
+  schedule: "Windows PC every Sunday at 18:00 Europe/London",
+  pushSource: "fulltime-desktop-extension",
+  loadHtml
+});
+
+async function runChromeExtensionSync(loadHtml = waitForChromeCapture) {
+  return runSync(syncOptions(loadHtml));
+}
+
+async function createPreview() {
+  const capture = await waitForChromeCapture();
+  const preview = await buildSyncPreview(capture);
+  const createdAt = new Date();
+  pendingPreview = {
+    id: randomUUID(),
+    capture,
+    createdAt: createdAt.toISOString(),
+    expiresAt: new Date(createdAt.getTime() + PREVIEW_LIFETIME_MS).toISOString(),
+    preview
+  };
+  await savePendingPreview();
+  return {
+    status: "preview",
+    previewId: pendingPreview.id,
+    createdAt: pendingPreview.createdAt,
+    expiresAt: pendingPreview.expiresAt,
+    preview: pendingPreview.preview
+  };
+}
+
+async function applyPreview(previewId) {
+  if (!pendingPreview || previewId !== pendingPreview.id) {
+    throw new Error("That scrape preview is no longer available. Build a fresh preview before applying changes.");
+  }
+  if (Date.now() > Date.parse(pendingPreview.expiresAt)) {
+    pendingPreview = null;
+    await unlink(PENDING_PREVIEW_PATH).catch(() => {});
+    throw new Error("That scrape preview expired after seven days. Build a fresh preview before applying changes.");
+  }
+  if (pendingPreview.preview?.safeToApply === false) {
+    throw new Error("This report contains an unrecognised Full-Time row and cannot be applied. Build a clean preview first.");
+  }
+  const capture = pendingPreview.capture;
+  const refreshed = await buildSyncPreview(capture);
+  if (!pendingPreview.preview?.approvalSignature || refreshed.approvalSignature !== pendingPreview.preview.approvalSignature) {
+    pendingPreview = null;
+    await unlink(PENDING_PREVIEW_PATH).catch(() => {});
+    throw new Error("The app data changed after this report was built. Nothing was applied; build and approve a fresh preview.");
+  }
+  const status = await runChromeExtensionSync(async () => capture);
+  pendingPreview = null;
+  await unlink(PENDING_PREVIEW_PATH).catch(() => {});
+  return status;
 }
 
 const server = createServer(async (request, response) => {
@@ -93,6 +165,7 @@ const server = createServer(async (request, response) => {
       status: "ready",
       running: Boolean(running),
       captureWaiting: Boolean(captureJob),
+      previewWaiting: Boolean(pendingPreview),
       service: "EUYFC Windows Full-Time helper"
     }, origin);
     return;
@@ -111,6 +184,20 @@ const server = createServer(async (request, response) => {
     } : { status: "idle" }, origin);
     return;
   }
+  if (request.method === "GET" && request.url === "/pending-preview") {
+    if (pendingPreview && Date.now() > Date.parse(pendingPreview.expiresAt)) {
+      pendingPreview = null;
+      await unlink(PENDING_PREVIEW_PATH).catch(() => {});
+    }
+    send(response, 200, pendingPreview ? {
+      status: "pending",
+      previewId: pendingPreview.id,
+      createdAt: pendingPreview.createdAt,
+      expiresAt: pendingPreview.expiresAt,
+      preview: pendingPreview.preview
+    } : { status: "none", message: "There is no pending Full-Time report on this PC." }, origin);
+    return;
+  }
   if (request.method === "POST" && request.url === "/captured-pages") {
     try {
       const payload = await readJsonBody(request);
@@ -123,7 +210,12 @@ const server = createServer(async (request, response) => {
       } else if (typeof payload.resultsHtml !== "string" || typeof payload.fixturesHtml !== "string") {
         captureJob.reject(new Error("The Chrome extension did not return both Full-Time pages. No app data was changed."));
       } else {
-        captureJob.resolve({ resultsHtml: payload.resultsHtml, fixturesHtml: payload.fixturesHtml });
+        captureJob.resolve({
+          resultsHtml: payload.resultsHtml,
+          fixturesHtml: payload.fixturesHtml,
+          resultsPageCount: Math.max(1, Number(payload.resultsPageCount) || 1),
+          fixturesPageCount: Math.max(1, Number(payload.fixturesPageCount) || 1)
+        });
       }
       send(response, 202, { status: "accepted" }, origin);
     } catch (error) {
@@ -131,7 +223,7 @@ const server = createServer(async (request, response) => {
     }
     return;
   }
-  if (request.method !== "POST" || request.url !== "/sync") {
+  if (request.method !== "POST" || !["/sync", "/preview", "/apply-preview"].includes(request.url)) {
     send(response, 404, { status: "not-found", message: "Unknown desktop sync endpoint." }, origin);
     return;
   }
@@ -139,12 +231,21 @@ const server = createServer(async (request, response) => {
     send(response, 409, { status: "busy", message: "The Windows Full-Time bot is already running." }, origin);
     return;
   }
-  running = runChromeExtensionSync();
   try {
-    const status = await running;
-    send(response, 200, { status, message: status?.message || "Windows Chrome sync completed." }, origin);
+    if (request.url === "/apply-preview") {
+      const payload = await readJsonBody(request, 1024 * 1024);
+      running = applyPreview(String(payload.previewId || ""));
+    } else if (request.url === "/preview") {
+      running = createPreview();
+    } else {
+      running = runChromeExtensionSync();
+    }
+    const result = await running;
+    if (request.url === "/preview") send(response, 200, result, origin);
+    else send(response, 200, { status: result, message: result?.message || "Windows Chrome sync completed." }, origin);
   } catch (error) {
-    send(response, 502, { status: "failed", message: error.message }, origin);
+    const status = /preview.*(?:available|expired)|data changed|cannot be applied/i.test(error.message) ? 409 : 502;
+    send(response, status, { status: "failed", message: error.message }, origin);
   } finally {
     running = null;
     captureJob = null;
