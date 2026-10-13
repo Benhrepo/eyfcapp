@@ -114,6 +114,11 @@ if (Test-Path -LiteralPath $configPath) {
 
 Write-Step "Registering the Sunday sync and management-portal helper"
 $identity = [Security.Principal.WindowsIdentity]::GetCurrent().Name
+$existingServiceTask = Get-ScheduledTask -TaskName $serviceTaskName -ErrorAction SilentlyContinue
+if ($existingServiceTask -and $existingServiceTask.State -eq "Running") {
+  Stop-ScheduledTask -TaskName $serviceTaskName
+  Start-Sleep -Seconds 1
+}
 $principal = New-ScheduledTaskPrincipal -UserId $identity -LogonType Interactive -RunLevel Limited
 $settings = New-ScheduledTaskSettingsSet `
   -AllowStartIfOnBatteries `

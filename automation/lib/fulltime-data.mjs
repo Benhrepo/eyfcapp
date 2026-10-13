@@ -44,6 +44,10 @@ const OFFICIAL_BY_KEY = new Map(OFFICIAL_LEAGUE_TEAMS.map(team => [teamLooseKey(
   "Eastbourne United Association Youth U13s",
   "Eastbourne United U13"
 ].forEach(alias => OFFICIAL_BY_KEY.set(teamLooseKey(alias), CLUB));
+[
+  "Whitehawk U13",
+  "Whitehawk U 13"
+].forEach(alias => OFFICIAL_BY_KEY.set(teamLooseKey(alias), "Whitehawk U13 Whitehawk u13"));
 
 export function knownLeagueTeam(value) {
   return OFFICIAL_BY_KEY.get(teamLooseKey(value)) || "";
@@ -54,7 +58,9 @@ export function isEastbourne(value) {
 }
 
 export function sameTeam(left, right) {
-  return Boolean(teamLooseKey(left)) && teamLooseKey(left) === teamLooseKey(right);
+  const leftKey = teamLooseKey(knownLeagueTeam(left) || left);
+  const rightKey = teamLooseKey(knownLeagueTeam(right) || right);
+  return Boolean(leftKey) && leftKey === rightKey;
 }
 
 export function parseFullTimeDateTime(value) {
@@ -258,11 +264,11 @@ export function parseFixturesHtml(html) {
 }
 
 function unorderedPairKey(row) {
-  return [teamLooseKey(row?.homeTeam), teamLooseKey(row?.awayTeam)].sort().join("|");
+  return [knownLeagueTeam(row?.homeTeam) || row?.homeTeam, knownLeagueTeam(row?.awayTeam) || row?.awayTeam].map(teamLooseKey).sort().join("|");
 }
 
 function orderedPairKey(row) {
-  return [teamLooseKey(row?.homeTeam), teamLooseKey(row?.awayTeam)].join("|");
+  return [knownLeagueTeam(row?.homeTeam) || row?.homeTeam, knownLeagueTeam(row?.awayTeam) || row?.awayTeam].map(teamLooseKey).join("|");
 }
 
 function changed(before, after) {
@@ -308,10 +314,23 @@ function mergeOneListRecord(list, row, mode) {
 }
 
 function actionStats() {
-  return { added: 0, updated: 0, unchanged: 0 };
+  return { added: 0, updated: 0, unchanged: 0, removed: 0 };
 }
 
-export function mergeMatchList(current, rows, mode) {
+function emptyImportedLeagueListFixture(item) {
+  const imported = clean(item?.source) === AUTOMATION_SOURCE || /^(?:ft-|fa-fixture-)/.test(clean(item?.id));
+  return imported
+    && clean(item?.competition || "League").toLowerCase() === "league"
+    && Number(item?.homeScore ?? -1) < 0
+    && Number(item?.awayScore ?? -1) < 0;
+}
+
+function matchesOfficialFixture(item, row) {
+  if (row.fullTimeFixtureId && String(item?.fullTimeFixtureId || "") === String(row.fullTimeFixtureId)) return true;
+  return clean(item?.date) === clean(row.date) && orderedPairKey(item) === orderedPairKey(row);
+}
+
+export function mergeMatchList(current, rows, mode, options = {}) {
   let list = Array.isArray(current) ? [...current] : [];
   const stats = actionStats();
   rows.forEach(row => {
@@ -319,6 +338,14 @@ export function mergeMatchList(current, rows, mode) {
     list = merged.list;
     stats[merged.action] += 1;
   });
+  if (mode === "fixture" && options.reconcile === true && rows.length >= 8) {
+    list = list.filter(item => {
+      if (rows.some(row => matchesOfficialFixture(item, row))) return true;
+      if (!emptyImportedLeagueListFixture(item)) return true;
+      stats.removed += 1;
+      return false;
+    });
+  }
   list.sort((left, right) => dateNumber(left.date) - dateNumber(right.date) || clean(left.kickOffTime).localeCompare(clean(right.kickOffTime)));
   return { value: list, stats };
 }
@@ -332,23 +359,80 @@ function storedFixtureAsMatch(fixture) {
   };
 }
 
-function findOurFixture(fixtures, row) {
+function findOurFixture(fixtures, row, used = new Set()) {
+  const available = (_, index) => !used.has(index);
   if (row.fullTimeFixtureId) {
-    const byId = fixtures.findIndex(item => String(item?.fullTimeFixtureId || "") === String(row.fullTimeFixtureId));
+    const byId = fixtures.findIndex((item, index) => available(item, index) && String(item?.fullTimeFixtureId || "") === String(row.fullTimeFixtureId));
     if (byId >= 0) return byId;
   }
-  const exact = fixtures.findIndex(item => clean(item?.date) === clean(row.date) && unorderedPairKey(storedFixtureAsMatch(item)) === unorderedPairKey(row));
+  const exact = fixtures.findIndex((item, index) => available(item, index) && clean(item?.date) === clean(row.date) && orderedPairKey(storedFixtureAsMatch(item)) === orderedPairKey(row));
   if (exact >= 0) return exact;
   const home = isEastbourne(row.homeTeam);
   const opponent = home ? row.awayTeam : row.homeTeam;
   const venue = home ? "Home" : "Away";
   const rowDate = dateNumber(row.date);
   const candidates = fixtures.map((item, index) => ({ item, index, distance: Math.abs(dateNumber(item?.date) - rowDate) }))
-    .filter(candidate => Number.isFinite(candidate.distance) && candidate.distance <= 120 * 86400000)
-    .filter(candidate => sameTeam(candidate.item?.opponent, opponent) && candidate.item?.venue === venue && clean(candidate.item?.competition || "League") === "League")
+    .filter(candidate => !used.has(candidate.index) && Number.isFinite(candidate.distance) && candidate.distance <= 240 * 86400000)
+    .filter(candidate => sameTeam(candidate.item?.opponent, opponent) && clean(candidate.item?.competition || "League") === "League")
     .filter(candidate => !candidate.item?.completed && Number(candidate.item?.ourScore ?? -1) < 0 && Number(candidate.item?.opponentScore ?? -1) < 0)
-    .sort((left, right) => left.distance - right.distance);
+    .sort((left, right) => Number(right.item?.venue === venue) - Number(left.item?.venue === venue) || left.distance - right.distance);
   return candidates[0]?.index ?? -1;
+}
+
+function fixtureDataWeight(fixture) {
+  const meaningful = value => {
+    if (value === null || value === undefined || value === "" || value === false || value === 0) return false;
+    if (Array.isArray(value)) return value.some(meaningful);
+    if (typeof value === "object") return Object.values(value).some(meaningful);
+    return Boolean(clean(value));
+  };
+  let weight = fixture?.completed ? 100 : 0;
+  if (Number(fixture?.ourScore ?? -1) >= 0 || Number(fixture?.opponentScore ?? -1) >= 0) weight += 50;
+  ["playerIds", "squadOrder", "illnessPlayerIds", "lineupPositions", "goalScorers", "matchPhotos", "matchdayEvents"].forEach(key => { if (meaningful(fixture?.[key])) weight += 1; });
+  ["goalCounts", "assistCounts"].forEach(key => { if (meaningful(fixture?.[key])) weight += 1; });
+  ["motmPlayerId", "matchReport", "matchdayStatus"].forEach(key => { if (clean(fixture?.[key])) weight += 1; });
+  return weight;
+}
+
+function importedOurLeagueFixture(fixture) {
+  return clean(fixture?.competition || "League").toLowerCase() === "league"
+    && fixture?.customFixture !== true
+    && (clean(fixture?.source) === AUTOMATION_SOURCE || /^(?:ft-|fa-fixture-)/.test(clean(fixture?.id)));
+}
+
+function emptyOurFixture(fixture) {
+  return !fixture?.completed && Number(fixture?.ourScore ?? -1) < 0 && Number(fixture?.opponentScore ?? -1) < 0 && fixtureDataWeight(fixture) === 0;
+}
+
+function consolidateOurFixtureDuplicates(fixtures) {
+  const output = [];
+  const bySchedule = new Map();
+  let removed = 0;
+  fixtures.forEach(fixture => {
+    const key = [clean(fixture?.date), teamLooseKey(knownLeagueTeam(fixture?.opponent) || fixture?.opponent), clean(fixture?.venue), clean(fixture?.competition || "League")].join("|");
+    const priorIndex = bySchedule.get(key);
+    if (priorIndex === undefined || !importedOurLeagueFixture(fixture) || !importedOurLeagueFixture(output[priorIndex])) {
+      bySchedule.set(key, output.length);
+      output.push(fixture);
+      return;
+    }
+    const prior = output[priorIndex];
+    if (prior?.fullTimeFixtureId && fixture?.fullTimeFixtureId && String(prior.fullTimeFixtureId) !== String(fixture.fullTimeFixtureId)) {
+      output.push(fixture);
+      return;
+    }
+    const primary = fixtureDataWeight(fixture) > fixtureDataWeight(prior) ? fixture : prior;
+    const secondary = primary === fixture ? prior : fixture;
+    output[priorIndex] = {
+      ...secondary,
+      ...primary,
+      id: primary.id || secondary.id,
+      fullTimeFixtureId: primary.fullTimeFixtureId || secondary.fullTimeFixtureId || "",
+      source: AUTOMATION_SOURCE
+    };
+    removed += 1;
+  });
+  return { fixtures: output, removed };
 }
 
 function ourFixtureFromRow(row, existing = null) {
@@ -389,15 +473,20 @@ function ourFixtureFromRow(row, existing = null) {
 
 export function mergeOurFixtures(team, rows) {
   const nextTeam = team && typeof team === "object" ? structuredClone(team) : {};
-  const fixtures = Array.isArray(nextTeam.fixtures) ? [...nextTeam.fixtures] : [];
+  const consolidated = consolidateOurFixtureDuplicates(Array.isArray(nextTeam.fixtures) ? [...nextTeam.fixtures] : []);
+  let fixtures = consolidated.fixtures;
   const stats = actionStats();
+  stats.removed += consolidated.removed;
+  const used = new Set();
   rows.forEach(row => {
-    const index = findOurFixture(fixtures, row);
+    const index = findOurFixture(fixtures, row, used);
     if (index < 0) {
       fixtures.push(ourFixtureFromRow(row));
+      used.add(fixtures.length - 1);
       stats.added += 1;
       return;
     }
+    used.add(index);
     const merged = ourFixtureFromRow(row, fixtures[index]);
     if (changed(fixtures[index], merged)) {
       fixtures[index] = merged;
@@ -406,6 +495,13 @@ export function mergeOurFixtures(team, rows) {
       stats.unchanged += 1;
     }
   });
+  if (rows.length >= 8) {
+    fixtures = fixtures.filter((fixture, index) => {
+      if (used.has(index) || !importedOurLeagueFixture(fixture) || !emptyOurFixture(fixture)) return true;
+      stats.removed += 1;
+      return false;
+    });
+  }
   fixtures.sort((left, right) => dateNumber(left.date) - dateNumber(right.date) || clean(left.kickOffTime).localeCompare(clean(right.kickOffTime)));
   fixtures.forEach((fixture, index) => { fixture.fixtureOrder = index; });
   nextTeam.fixtures = fixtures;

@@ -84,7 +84,7 @@ function statusSummary(results, fixtures, writes) {
       otherLeague: fixtures.others.length,
       rejected: fixtures.rejected.length,
       eastbourneChanges: writes.ourFixtures.stats,
-      otherLeagueChanges: writes.leagueFixtures.stats
+      leagueListChanges: writes.leagueFixtures.stats
     }
   };
 }
@@ -139,7 +139,7 @@ async function inputHtml(fileArg, url) {
 }
 
 function logStats(label, stats) {
-  console.log(`${label}: ${stats.added} added, ${stats.updated} updated, ${stats.unchanged} unchanged`);
+  console.log(`${label}: ${stats.added} added, ${stats.updated} updated, ${stats.removed || 0} removed, ${stats.unchanged} unchanged`);
 }
 
 export async function runSync(options = {}) {
@@ -176,7 +176,7 @@ export async function runSync(options = {}) {
     let leagueFixtures;
     const leagueWrite = await updatePath("league_matches", current => {
       leagueResults = mergeMatchList(current, results.league, "result");
-      leagueFixtures = mergeMatchList(leagueResults.value, fixtures.others, "fixture");
+      leagueFixtures = mergeMatchList(leagueResults.value, fixtures.all, "fixture", { reconcile: true });
       return { value: leagueFixtures.value, stats: { results: leagueResults.stats, fixtures: leagueFixtures.stats } };
     });
     const cupWrite = await updatePath("cup_matches", current => mergeMatchList(current, results.cups, "result"));
@@ -220,7 +220,7 @@ export async function runSync(options = {}) {
     logStats("League results", writes.leagueResults.stats);
     logStats("Other clubs' cup results", writes.cupResults.stats);
     logStats("Eastbourne fixtures", writes.ourFixtures.stats);
-    logStats("Other league fixtures", writes.leagueFixtures.stats);
+    logStats("All league fixtures", writes.leagueFixtures.stats);
     console.log(status.message);
     return status;
   } catch (error) {

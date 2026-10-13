@@ -5705,10 +5705,10 @@
       const resultChanges = sync.results?.leagueChanges || {};
       const cupChanges = sync.results?.cupChanges || {};
       const ourFixtureChanges = sync.fixtures?.eastbourneChanges || {};
-      const otherFixtureChanges = sync.fixtures?.otherLeagueChanges || {};
+      const otherFixtureChanges = sync.fixtures?.leagueListChanges || sync.fixtures?.otherLeagueChanges || {};
       const resultTotal = Number(sync.results?.league || 0) + Number(sync.results?.cups || 0);
       const fixtureTotal = Number(sync.fixtures?.scraped || 0);
-      const changes = [resultChanges, cupChanges, ourFixtureChanges, otherFixtureChanges].reduce((total, group) => total + Number(group.added || 0) + Number(group.updated || 0), 0);
+      const changes = [resultChanges, cupChanges, ourFixtureChanges, otherFixtureChanges].reduce((total, group) => total + Number(group.added || 0) + Number(group.updated || 0) + Number(group.removed || 0), 0);
       return `<div class="fulltime-auto-status">
         <div class="fulltime-auto-card primary ${statusClass}"><span>Windows PC · Sunday 6pm sync</span><strong>${esc(statusLabel)}</strong><small>${esc(sync.message || "The Chrome extension bot will check Full-Time results and U13 Championship fixtures automatically.")}</small><small>${esc(when)}</small></div>
         <div class="fulltime-auto-card"><span>Results checked</span><strong>${resultTotal}</strong><small>${Number(sync.results?.ignoredEastbourne || 0)} Eastbourne result${Number(sync.results?.ignoredEastbourne || 0) === 1 ? "" : "s"} safely ignored</small></div>

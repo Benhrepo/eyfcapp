@@ -4,6 +4,8 @@ This is the primary FA Full-Time sync method. A small unpacked extension opens t
 
 The bot writes to the app's existing Firebase paths. One successful run therefore updates the management portal, public app, league table, other clubs' cup results and fixtures together.
 
+Eastbourne's U13 Championship fixtures are updated in both the team schedule and shared league fixture list. Eastbourne results remain manual. Obsolete empty imported fixtures are reconciled after postponements, while completed games, cup games, custom fixtures and all matchday data are preserved.
+
 ## Before installation
 
 - Install the current **Node.js LTS** release from <https://nodejs.org/> if `node --version` does not work in PowerShell.

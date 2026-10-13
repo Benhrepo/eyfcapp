@@ -11,7 +11,7 @@ This job checks the configured FA Full-Time pages every Sunday at **18:00 Europe
 - The league is restricted to the eight official U13 Championship teams configured in both tested importers.
 - Existing records are updated using the Full-Time fixture ID. Date/team matching is used for older records that do not yet have that ID.
 - Eastbourne fixture updates preserve scores, players, goals, assists, MOTM, match reports, photos and all matchday events.
-- The job never deletes fixtures or results that disappear from the source page.
+- A complete official schedule replaces obsolete empty imported league fixtures, preventing duplicates after postponements. Scored matches, cup games, custom fixtures and fixtures containing matchday selections/events are never removed.
 - If Full-Time blocks the request, returns an incomplete page, or no rows can be parsed, the sync stops without changing match data.
 
 ## Windows Chrome bot (primary method)

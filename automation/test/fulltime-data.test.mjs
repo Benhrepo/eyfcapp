@@ -51,3 +51,64 @@ test("Eastbourne fixture updates preserve all matchday data", () => {
   assert.equal(fixture.goalCounts.p1, 3);
   assert.equal(fixture.motmPlayerId, "p1");
 });
+
+test("Eastbourne fixtures update the shared league list without duplicating team aliases", () => {
+  const current = [{ id: "ft-whitehawk", date: "01/11/2026", kickOffTime: "10:00", homeTeam: "Eastbourne United U13s", awayTeam: "Whitehawk U 13", competition: "League", homeScore: -1, awayScore: -1, source: "Management" }];
+  const incoming = [{ id: "fa-fixture-whitehawk", fullTimeFixtureId: "whitehawk", date: "01/11/2026", kickOffTime: "11:00", homeTeam: "Eastbourne United U13s", awayTeam: "Whitehawk U13 Whitehawk u13", competition: "League", homeScore: -1, awayScore: -1, source: "FA Full-Time Automatic Sync" }];
+  const merged = mergeMatchList(current, incoming, "fixture", { reconcile: true });
+  assert.equal(merged.value.length, 1);
+  assert.equal(merged.value[0].fullTimeFixtureId, "whitehawk");
+  assert.equal(merged.value[0].kickOffTime, "11:00");
+  assert.equal(merged.stats.updated, 1);
+});
+
+test("official Eastbourne schedule removes only empty obsolete imports", () => {
+  const emptyFixture = (overrides = {}) => ({
+    id: "ft-old",
+    opponent: "Whitehawk U 13",
+    date: "01/11/2026",
+    kickOffTime: "10:00",
+    venue: "Home",
+    competition: "League",
+    ourScore: -1,
+    opponentScore: -1,
+    completed: false,
+    playerIds: [],
+    squadOrder: [],
+    illnessPlayerIds: [],
+    lineupPositions: [],
+    goalCounts: {},
+    assistCounts: {},
+    goalScorers: [],
+    matchPhotos: [],
+    matchdayEvents: [],
+    ...overrides
+  });
+  const team = { fixtures: [
+    emptyFixture(),
+    emptyFixture({ id: "fa-fixture-whitehawk", fullTimeFixtureId: "whitehawk", opponent: "Whitehawk U13 Whitehawk u13", source: "FA Full-Time Automatic Sync" }),
+    emptyFixture({ id: "ft-stale-brighton", opponent: "Brighton & Hove Albion Women FC U13", date: "31/01/2027", venue: "Away" }),
+    emptyFixture({ id: "current-brighton", fullTimeFixtureId: "3", opponent: "Brighton & Hove Albion Women FC U13", date: "15/11/2026", venue: "Away", source: "FA Full-Time Automatic Sync" }),
+    emptyFixture({ id: "current-brighton-home", fullTimeFixtureId: "6", opponent: "Brighton & Hove Albion Women FC U13", date: "06/12/2026", venue: "Home", source: "FA Full-Time Automatic Sync" }),
+    emptyFixture({ id: "manual-friendly", opponent: "Local Friendly U13", date: "20/02/2027", customFixture: true }),
+    emptyFixture({ id: "cup-match", opponent: "Cup Opponent U13", date: "21/02/2027", competition: "League Cup" }),
+    emptyFixture({ id: "ft-with-squad", opponent: "Patcham United U13 Black", date: "18/10/2026", playerIds: ["p1"] })
+  ] };
+  const officialRows = [
+    { id: "fa-fixture-whitehawk", fullTimeFixtureId: "whitehawk", date: "01/11/2026", kickOffTime: "11:00", homeTeam: "Eastbourne United U13s", awayTeam: "Whitehawk U13 Whitehawk u13", competition: "League", venue: "The Oval" },
+    { id: "fa-2", fullTimeFixtureId: "2", date: "08/11/2026", kickOffTime: "10:00", homeTeam: "Saltdean United FC U13", awayTeam: "Eastbourne United U13s", competition: "League" },
+    { id: "fa-3", fullTimeFixtureId: "3", date: "15/11/2026", kickOffTime: "10:00", homeTeam: "Brighton & Hove Albion Women FC U13", awayTeam: "Eastbourne United U13s", competition: "League" },
+    { id: "fa-4", fullTimeFixtureId: "4", date: "22/11/2026", kickOffTime: "10:00", homeTeam: "Southwick U13 Black", awayTeam: "Eastbourne United U13s", competition: "League" },
+    { id: "fa-5", fullTimeFixtureId: "5", date: "29/11/2026", kickOffTime: "10:00", homeTeam: "Horley United U13 Emerald", awayTeam: "Eastbourne United U13s", competition: "League" },
+    { id: "fa-6", fullTimeFixtureId: "6", date: "06/12/2026", kickOffTime: "10:00", homeTeam: "Eastbourne United U13s", awayTeam: "Brighton & Hove Albion Women FC U13", competition: "League" },
+    { id: "fa-7", fullTimeFixtureId: "7", date: "13/12/2026", kickOffTime: "10:00", homeTeam: "Whitehawk U13 Whitehawk u13", awayTeam: "Eastbourne United U13s", competition: "League" },
+    { id: "fa-8", fullTimeFixtureId: "8", date: "10/01/2027", kickOffTime: "10:00", homeTeam: "Eastbourne United U13s", awayTeam: "ASC Brighton Rangers U13", competition: "League" }
+  ];
+  const merged = mergeOurFixtures(team, officialRows);
+  assert.equal(merged.value.fixtures.filter(fixture => fixture.fullTimeFixtureId === "whitehawk").length, 1);
+  assert.equal(merged.value.fixtures.some(fixture => fixture.id === "ft-stale-brighton"), false);
+  assert.equal(merged.value.fixtures.some(fixture => fixture.id === "manual-friendly"), true);
+  assert.equal(merged.value.fixtures.some(fixture => fixture.id === "cup-match"), true);
+  assert.equal(merged.value.fixtures.some(fixture => fixture.id === "ft-with-squad"), true);
+  assert.ok(merged.stats.removed >= 2);
+});
