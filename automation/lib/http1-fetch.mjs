@@ -92,19 +92,44 @@ function blockedMessage(status, body) {
 export async function fetchFullTimePage(url, redirects = 0) {
   if (redirects > 5) throw new Error("Too many redirects from FA Full-Time");
   const scraperApiKey = process.env.SCRAPERAPI_API_KEY || "";
-  let requestUrl = url;
   if (scraperApiKey) {
-    const proxyUrl = new URL("https://api.scraperapi.com/");
-    proxyUrl.searchParams.set("api_key", scraperApiKey);
-    proxyUrl.searchParams.set("url", url);
-    proxyUrl.searchParams.set("render", "true");
-    proxyUrl.searchParams.set("premium", "true");
-    proxyUrl.searchParams.set("country_code", "gb");
-    proxyUrl.searchParams.set("wait_for_selector", url.includes("results.html") ? ".datetime-col" : "table tr");
-    requestUrl = proxyUrl.toString();
+    const modes = [
+      { label: "standard rendered", parameters: { render: "true" } },
+      { label: "premium proxy", parameters: { premium: "true" } },
+      { label: "premium rendered", parameters: { premium: "true", render: "true" } }
+    ];
+    const failures = [];
+    for (const mode of modes) {
+      const proxyUrl = new URL("https://api.scraperapi.com/");
+      proxyUrl.searchParams.set("api_key", scraperApiKey);
+      proxyUrl.searchParams.set("url", url);
+      Object.entries(mode.parameters).forEach(([key, value]) => proxyUrl.searchParams.set(key, value));
+      const response = await rawTlsRequest(proxyUrl.toString(), 90000);
+      if (response.status === 401) throw new Error("ScraperAPI rejected the API key (HTTP 401). Check SCRAPERAPI_API_KEY. No app data was changed.");
+      if (response.status === 403) throw new Error("ScraperAPI rejected the request (HTTP 403). Check the account credit balance and plan access. No app data was changed.");
+      if (response.status === 429) throw new Error("ScraperAPI rate-limited the sync (HTTP 429). Wait a minute and try again. No app data was changed.");
+      if (response.status !== 200) {
+        failures.push(`${mode.label} HTTP ${response.status || "unknown"}`);
+        continue;
+      }
+      if (/attention required|you have been blocked|you have been prevented/i.test(response.body)) {
+        failures.push(`${mode.label} returned the Full-Time block page`);
+        continue;
+      }
+      if (!response.body || response.body.length < 1000) {
+        failures.push(`${mode.label} returned an empty page`);
+        continue;
+      }
+      const hasRows = url.includes("results.html")
+        ? /datetime-col/i.test(response.body) && /home-team-col/i.test(response.body) && /road-team-col/i.test(response.body)
+        : /<table/i.test(response.body) && /U13 Championship/i.test(response.body) && />\s*vs\s*</i.test(response.body);
+      if (hasRows) return response.body;
+      failures.push(`${mode.label} returned no recognised match rows`);
+    }
+    throw new Error(`ScraperAPI could not retrieve usable FA Full-Time data after automatic fallback attempts (${failures.join("; ")}). No app data was changed.`);
   }
-  const response = await rawTlsRequest(requestUrl, scraperApiKey ? 100000 : 35000);
-  if (scraperApiKey && response.status !== 200) throw new Error(`ScraperAPI could not retrieve FA Full-Time (HTTP ${response.status || "unknown"}). No app data was changed.`);
+  const requestUrl = url;
+  const response = await rawTlsRequest(requestUrl, 35000);
   if (response.status >= 300 && response.status < 400 && response.headers.get("location")) {
     return fetchFullTimePage(new URL(response.headers.get("location"), requestUrl).toString(), redirects + 1);
   }

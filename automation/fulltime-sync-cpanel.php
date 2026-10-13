@@ -54,9 +54,9 @@ if (!$isCli) {
     });
 }
 
-// Rendering two Full-Time pages can take longer than a normal web request.
+// ScraperAPI may try several safe proxy/rendering modes for both Full-Time pages.
 if (function_exists('set_time_limit')) {
-    @set_time_limit(240);
+    @set_time_limit(360);
 }
 if (function_exists('ignore_user_abort')) {
     @ignore_user_abort(true);

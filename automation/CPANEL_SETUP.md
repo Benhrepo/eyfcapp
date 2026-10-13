@@ -111,6 +111,6 @@ If the cPanel server uses a timezone other than UTC or Europe/London, use Hour `
   /usr/local/bin/php -l /home/cg6pfjcqdwjz/public_html/euyfcapp/automation/.cpanel-sync-config.php
   ```
 
-  A successful check prints `No syntax errors detected`. The web endpoint allows up to four minutes for ScraperAPI to render both Full-Time pages and now returns PHP startup failures to the portal as readable messages.
-- **ScraperAPI HTTP error:** check the account's remaining monthly credits and API key in its dashboard. No match data is changed on a failed fetch.
+  A successful check prints `No syntax errors detected`. The web endpoint allows up to six minutes for ScraperAPI to try safe standard, rendered and premium fallbacks for both Full-Time pages, and returns PHP startup failures to the portal as readable messages.
+- **ScraperAPI HTTP error:** the importer automatically tries standard rendering, premium proxying, and premium rendering without relying on a brittle Full-Time CSS selector. Check the account's remaining monthly credits and API key in its dashboard. No match data is changed on a failed fetch.
 - **Firebase 401/403:** add an appropriate `firebase_auth_token` to the private configuration.

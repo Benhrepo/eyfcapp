@@ -650,29 +650,68 @@ function euyfc_http_request(string $method, string $url, array $headers = [], ?s
 function euyfc_fetch_fulltime(string $url, array $config): string
 {
     $scraperApiKey = euyfc_config_value($config, 'scraperapi_key', 'SCRAPERAPI_API_KEY');
-    $requestUrl = $url;
-    $throughScraperApi = $scraperApiKey !== '';
-    if ($throughScraperApi) {
-        $waitFor = strpos($url, 'results.html') !== false ? '.datetime-col' : 'table tr';
-        $requestUrl = 'https://api.scraperapi.com/?' . http_build_query([
-            'api_key' => $scraperApiKey,
-            'url' => $url,
-            'render' => 'true',
-            'premium' => 'true',
-            'country_code' => 'gb',
-            'wait_for_selector' => $waitFor
-        ], '', '&', PHP_QUERY_RFC3986);
-    }
-    $response = euyfc_http_request('GET', $requestUrl, [
+    $headers = [
         'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
         'Accept-Language: en-GB,en;q=0.9',
         'Accept-Encoding: identity',
         'Upgrade-Insecure-Requests: 1'
-    ], null, true, $throughScraperApi ? 100 : 45);
-    $body = $response['body'];
-    if ($throughScraperApi && $response['status'] !== 200) {
-        throw new RuntimeException('ScraperAPI could not retrieve FA Full-Time (HTTP ' . ($response['status'] ?: 'unknown') . '). No app data was changed.');
+    ];
+
+    if ($scraperApiKey !== '') {
+        // Avoid wait_for_selector here. Full-Time can change its CSS, which makes
+        // ScraperAPI wait until it returns HTTP 500 even when the page loaded.
+        $modes = [
+            ['label' => 'standard rendered', 'parameters' => ['render' => 'true']],
+            ['label' => 'premium proxy', 'parameters' => ['premium' => 'true']],
+            ['label' => 'premium rendered', 'parameters' => ['premium' => 'true', 'render' => 'true']]
+        ];
+        $failures = [];
+        foreach ($modes as $mode) {
+            $parameters = array_merge([
+                'api_key' => $scraperApiKey,
+                'url' => $url
+            ], $mode['parameters']);
+            $requestUrl = 'https://api.scraperapi.com/?' . http_build_query($parameters, '', '&', PHP_QUERY_RFC3986);
+            $response = euyfc_http_request('GET', $requestUrl, $headers, null, true, 90);
+            $body = $response['body'];
+
+            if ($response['status'] === 401) {
+                throw new RuntimeException('ScraperAPI rejected the API key (HTTP 401). Check scraperapi_key in the private cPanel configuration. No app data was changed.');
+            }
+            if ($response['status'] === 403) {
+                throw new RuntimeException('ScraperAPI rejected the request (HTTP 403). Check the account credit balance and plan access. No app data was changed.');
+            }
+            if ($response['status'] === 429) {
+                throw new RuntimeException('ScraperAPI rate-limited the sync (HTTP 429). Wait a minute and try again. No app data was changed.');
+            }
+            if ($response['status'] !== 200) {
+                $failures[] = $mode['label'] . ' HTTP ' . ($response['status'] ?: 'unknown');
+                continue;
+            }
+            if (preg_match('/attention required|you have been blocked|you have been prevented/i', $body)) {
+                $failures[] = $mode['label'] . ' returned the Full-Time block page';
+                continue;
+            }
+            if (strlen($body) < 1000) {
+                $failures[] = $mode['label'] . ' returned an empty page';
+                continue;
+            }
+            try {
+                $parsed = strpos($url, 'results.html') !== false
+                    ? euyfc_parse_results_html($body)
+                    : euyfc_parse_fixtures_html($body);
+                if (!empty($parsed['all'])) {
+                    return $body;
+                }
+            } catch (Throwable $ignored) {
+            }
+            $failures[] = $mode['label'] . ' returned no recognised match rows';
+        }
+        throw new RuntimeException('ScraperAPI could not retrieve usable FA Full-Time data after automatic fallback attempts (' . implode('; ', $failures) . '). No app data was changed.');
     }
+
+    $response = euyfc_http_request('GET', $url, $headers, null, true, 45);
+    $body = $response['body'];
     if ($response['status'] === 403 && preg_match('/cloudflare|attention required|you have been blocked|you have been prevented/i', $body)) {
         throw new RuntimeException('FA Full-Time blocked this server through its Cloudflare protection. No app data was changed.');
     }
