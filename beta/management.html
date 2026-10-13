@@ -5735,10 +5735,15 @@
           headers: { "Content-Type": "application/json", "X-Sync-Token": token },
           body: "{}"
         });
-        const payload = await response.json().catch(() => ({}));
+        const responseText = await response.text();
+        let payload = {};
+        try { payload = responseText ? JSON.parse(responseText) : {}; } catch {}
         if (!response.ok) {
           if (response.status === 401) sessionStorage.removeItem("fulltimeSyncToken");
-          throw new Error(payload.message || `Sync failed with HTTP ${response.status}`);
+          const fallback = response.status === 500
+            ? "The server returned HTTP 500 without details. Check the private config syntax and the cPanel PHP error log."
+            : `Sync failed with HTTP ${response.status}${response.statusText ? ` (${response.statusText})` : ""}`;
+          throw new Error(payload.message || fallback);
         }
         state.fulltimeSync = payload.status && typeof payload.status === "object" ? payload.status : payload;
         setSync(`Full-Time synced ${new Date().toLocaleTimeString()}`);

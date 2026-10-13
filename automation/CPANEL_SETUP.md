@@ -105,5 +105,12 @@ If the cPanel server uses a timezone other than UTC or Europe/London, use Hour `
 - **Incorrect sync key:** the key entered in the portal does not exactly match `sync_token`.
 - **PHP DOM or cURL missing:** enable PHP `dom`, `xml` and `curl` in cPanel's PHP extensions screen or ask the host.
 - **Cloudflare blocked the server:** make sure `scraperapi_key` is present and correct in the private configuration.
+- **Management portal reports HTTP 500:** first check the private configuration for a missing comma or quote:
+
+  ```bash
+  /usr/local/bin/php -l /home/cg6pfjcqdwjz/public_html/euyfcapp/automation/.cpanel-sync-config.php
+  ```
+
+  A successful check prints `No syntax errors detected`. The web endpoint allows up to four minutes for ScraperAPI to render both Full-Time pages and now returns PHP startup failures to the portal as readable messages.
 - **ScraperAPI HTTP error:** check the account's remaining monthly credits and API key in its dashboard. No match data is changed on a failed fetch.
 - **Firebase 401/403:** add an appropriate `firebase_auth_token` to the private configuration.

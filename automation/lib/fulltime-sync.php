@@ -805,7 +805,9 @@ function euyfc_run_sync(array $config): array
             $leagueFixtures = euyfc_merge_match_list($leagueResults['value'], $fixtures['others'], 'fixture');
             return ['value' => $leagueFixtures['value'], 'stats' => ['results' => $leagueResults['stats'], 'fixtures' => $leagueFixtures['stats']]];
         }, $config);
-        $cupWrite = euyfc_update_path('cup_matches', static fn($current): array => euyfc_merge_match_list($current, $results['cups'], 'result'), $config);
+        $cupWrite = euyfc_update_path('cup_matches', static function ($current) use ($results): array {
+            return euyfc_merge_match_list($current, $results['cups'], 'result');
+        }, $config);
         $teamWrite = euyfc_update_path('json', static function ($raw) use ($fixtures): array {
             $merged = euyfc_merge_our_fixtures(euyfc_parse_team_json($raw), $fixtures['ours']);
             return ['value' => json_encode($merged['value'], JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE), 'stats' => $merged['stats']];
