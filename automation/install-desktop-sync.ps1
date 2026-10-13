@@ -75,6 +75,20 @@ function Save-DesktopConfig([string]$syncKey) {
   }
 }
 
+function Stop-ExistingHelper {
+  $expectedServicePath = (Join-Path $automationDirectory "desktop-sync-service.mjs").ToLowerInvariant()
+  $listeners = @(Get-NetTCPConnection -LocalPort 32187 -State Listen -ErrorAction SilentlyContinue)
+  foreach ($listener in $listeners) {
+    $process = Get-CimInstance Win32_Process -Filter "ProcessId=$($listener.OwningProcess)" -ErrorAction SilentlyContinue
+    $commandLine = [string]$process.CommandLine
+    if (-not $process -or -not $commandLine.ToLowerInvariant().Contains($expectedServicePath)) {
+      throw "Port 32187 is already being used by another program. Close that program before reinstalling the EUYFC helper."
+    }
+    Write-Host "Stopping older EUYFC helper process $($listener.OwningProcess)."
+    Stop-Process -Id $listener.OwningProcess -Force
+  }
+}
+
 if ($RemoveTasks) {
   Write-Step "Removing the two EUYFC scheduled tasks"
   foreach ($taskName in @($scheduledTaskName, $serviceTaskName)) {
@@ -119,6 +133,7 @@ if ($existingServiceTask -and $existingServiceTask.State -eq "Running") {
   Stop-ScheduledTask -TaskName $serviceTaskName
   Start-Sleep -Seconds 1
 }
+Stop-ExistingHelper
 $principal = New-ScheduledTaskPrincipal -UserId $identity -LogonType Interactive -RunLevel Limited
 $settings = New-ScheduledTaskSettingsSet `
   -AllowStartIfOnBatteries `
@@ -159,7 +174,7 @@ for ($attempt = 1; $attempt -le 15; $attempt += 1) {
   Start-Sleep -Seconds 1
   try {
     $health = Invoke-RestMethod -Uri "http://127.0.0.1:32187/health" -TimeoutSec 2
-    if ($health.status -eq "ready") { $ready = $true; break }
+    if ($health.status -eq "ready" -and $health.serviceVersion -eq "1.1.0") { $ready = $true; break }
   } catch {}
 }
 if (-not $ready) {

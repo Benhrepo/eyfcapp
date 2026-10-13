@@ -166,6 +166,7 @@ const server = createServer(async (request, response) => {
       running: Boolean(running),
       captureWaiting: Boolean(captureJob),
       previewWaiting: Boolean(pendingPreview),
+      serviceVersion: "1.1.0",
       service: "EUYFC Windows Full-Time helper"
     }, origin);
     return;
