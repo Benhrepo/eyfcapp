@@ -1,0 +1,8 @@
+{
+  "syncToken": "replace-with-the-same-private-sync-key-used-by-the-management-portal",
+  "chromePath": "",
+  "servicePort": 32187,
+  "pageTimeoutSeconds": 120,
+  "firebaseDatabaseUrl": "",
+  "firebaseAuthToken": ""
+}

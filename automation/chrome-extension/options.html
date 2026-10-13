@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EUYFC Full-Time Sync</title>
+  <style>
+    body { margin: 0; padding: 32px; background: #07140e; color: #f7f7f2; font: 16px/1.5 system-ui, sans-serif; }
+    main { max-width: 640px; margin: auto; padding: 28px; border: 1px solid #284535; border-radius: 16px; background: #0d1d15; }
+    h1 { margin-top: 0; color: #ffd318; }
+    label { display: block; font-weight: 700; margin: 22px 0 8px; }
+    input { box-sizing: border-box; width: 100%; padding: 12px; border: 1px solid #476452; border-radius: 8px; background: #06110b; color: white; }
+    button { margin-top: 16px; padding: 11px 18px; border: 0; border-radius: 8px; background: #ffd318; color: #07140e; font-weight: 800; cursor: pointer; }
+    #status { min-height: 24px; margin-top: 14px; color: #b9cbbf; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>EUYFC Full-Time Sync</h1>
+    <p>This extension reads only the two public FA Full-Time match pages when the Windows helper requests a sync.</p>
+    <label for="syncKey">Private sync key</label>
+    <input id="syncKey" type="password" autocomplete="off" minlength="32" placeholder="Paste the same 32+ character key">
+    <button id="save" type="button">Save key on this PC</button>
+    <p id="status" role="status"></p>
+  </main>
+  <script src="options.js"></script>
+</body>
+</html>

@@ -142,15 +142,31 @@ function logStats(label, stats) {
   console.log(`${label}: ${stats.added} added, ${stats.updated} updated, ${stats.unchanged} unchanged`);
 }
 
-export async function runSync() {
+export async function runSync(options = {}) {
   if (!scheduledInvocationIsActive()) return { skipped: true };
+  const source = options.source || AUTOMATION_SOURCE;
+  const schedule = options.schedule || "Every Sunday at 18:00 Europe/London";
   const attemptAt = new Date().toISOString();
   console.log(`FA Full-Time sync started at ${attemptAt}${dryRun ? " (dry run)" : ""}.`);
   try {
-    const [resultsHtml, fixturesHtml] = await Promise.all([
-      inputHtml("--results-file", process.env.FULLTIME_RESULTS_URL || RESULTS_URL),
-      inputHtml("--fixtures-file", process.env.FULLTIME_FIXTURES_URL || FIXTURES_URL)
-    ]);
+    let resultsHtml;
+    let fixturesHtml;
+    if (typeof options.loadHtml === "function") {
+      const loaded = await options.loadHtml({
+        resultsUrl: process.env.FULLTIME_RESULTS_URL || RESULTS_URL,
+        fixturesUrl: process.env.FULLTIME_FIXTURES_URL || FIXTURES_URL
+      });
+      resultsHtml = loaded?.resultsHtml;
+      fixturesHtml = loaded?.fixturesHtml;
+    } else {
+      [resultsHtml, fixturesHtml] = await Promise.all([
+        inputHtml("--results-file", process.env.FULLTIME_RESULTS_URL || RESULTS_URL),
+        inputHtml("--fixtures-file", process.env.FULLTIME_FIXTURES_URL || FIXTURES_URL)
+      ]);
+    }
+    if (typeof resultsHtml !== "string" || typeof fixturesHtml !== "string") {
+      throw new Error("The Full-Time page loader did not return both results and fixtures HTML; no app data was changed");
+    }
     const results = parseResultsHtml(resultsHtml);
     const fixtures = parseFixturesHtml(fixturesHtml);
     if (!results.all.length) throw new Error("No Full-Time results were recognised; no app data was changed");
@@ -178,8 +194,8 @@ export async function runSync() {
     const completedAt = new Date().toISOString();
     const status = {
       status: dryRun ? "dry-run" : "success",
-      source: AUTOMATION_SOURCE,
-      schedule: "Every Sunday at 18:00 Europe/London",
+      source,
+      schedule,
       lastAttemptAt: attemptAt,
       lastSuccessAt: dryRun ? null : completedAt,
       completedAt,
@@ -191,7 +207,7 @@ export async function runSync() {
       await firebasePut("app_push", {
         id: `fulltime-sync-${Date.now()}`,
         updatedAt: Date.now(),
-        source: "fulltime-automation",
+        source: options.pushSource || "fulltime-automation",
         title: "Fixtures and results updated",
         message: "FA Full-Time results and U13 Championship fixtures were checked automatically.",
         details: [
@@ -210,8 +226,8 @@ export async function runSync() {
   } catch (error) {
     const failed = {
       status: "failed",
-      source: AUTOMATION_SOURCE,
-      schedule: "Every Sunday at 18:00 Europe/London",
+      source,
+      schedule,
       lastAttemptAt: attemptAt,
       completedAt: new Date().toISOString(),
       message: error instanceof Error ? error.message : String(error)

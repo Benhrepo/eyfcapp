@@ -1,6 +1,8 @@
 # cPanel setup — Sunday 6pm FA Full-Time sync
 
-The cPanel version runs entirely in PHP. It does **not** require Node.js, npm or `proc_open`. The same PHP job powers both the cron and the **Sync fixtures & results now** button in the management portal.
+> **Legacy only — do not enable this cron.** FA Full-Time currently blocks the cPanel address and the tested proxy fallbacks. Install the Windows Chrome bot in `DESKTOP_SETUP.md` instead, then disable any existing Full-Time cPanel cron. The PHP files remain here only for reference and offline testing.
+
+The retained cPanel version runs entirely in PHP and does not require Node.js, npm or `proc_open`. The current management portal button now uses the Windows helper instead; the steps below describe the blocked legacy route only.
 
 > The current hosting IP is blocked by FA Full-Time with HTTP 403. Create a free ScraperAPI account and add its key below; the PHP job then retrieves the two public pages through ScraperAPI while all parsing, duplicate protection and Firebase writes stay on cPanel.
 

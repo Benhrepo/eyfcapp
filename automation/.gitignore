@@ -2,3 +2,6 @@ node_modules/
 *.log
 .cpanel-sync-config.php
 artifacts/
+.desktop-sync-config.json
+desktop-profile/
+desktop-sync.lock

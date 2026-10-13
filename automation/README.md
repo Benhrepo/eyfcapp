@@ -14,13 +14,17 @@ This job checks the configured FA Full-Time pages every Sunday at **18:00 Europe
 - The job never deletes fixtures or results that disappear from the source page.
 - If Full-Time blocks the request, returns an incomplete page, or no rows can be parsed, the sync stops without changing match data.
 
-## cPanel cron and manual management sync
+## Windows Chrome bot (primary method)
 
-For cPanel, follow `CPANEL_SETUP.md`. The cPanel importer is pure PHP and needs no Node.js, npm or `proc_open`. Because FA Full-Time blocks the current hosting IP, it can use a ScraperAPI key to fetch the two public pages. The management portal's **Sync fixtures & results now** button and the Sunday cron still run the same tested PHP importer on cPanel.
+FA Full-Time blocks the cPanel host, GitHub-hosted runners and the tested proxy service. Follow `DESKTOP_SETUP.md` to install the Windows bot. Its small unpacked extension reads the two public pages in the user's normal Chrome profile, then sends them to the local authenticated helper and existing tested Firebase merge logic.
 
-## GitHub Actions manual backup
+The installer creates a Sunday 6pm Windows Scheduled Task plus a local authenticated helper for the management portal's **Run PC browser sync now** button. The PC must be switched on (or asleep), and the installing Windows user must be signed in.
 
-The repository includes `.github/workflows/fulltime-sync.yml` as a manually triggered backup. Add `SCRAPERAPI_API_KEY` as an Actions secret before running it from the Actions page.
+The older cPanel and GitHub files are retained as reference/fallback implementations, but their external Full-Time requests are currently blocked and should not be scheduled.
+
+## GitHub Actions legacy backup
+
+The repository includes `.github/workflows/fulltime-sync.yml`, but FA Full-Time currently blocks the hosted runner/proxy route. Do not rely on it for the Sunday update.
 
 Set these repository secrets if the Firebase database requires them:
 
@@ -28,9 +32,9 @@ Set these repository secrets if the Firebase database requires them:
 - `FIREBASE_AUTH_TOKEN` — optional Firebase auth token.
 - `SCRAPERAPI_API_KEY` — required for the backup workflow because FA Full-Time blocks datacentre IPs.
 
-## Linux cron alternative
+## Legacy direct-fetch commands
 
-Install Node.js 20.18.1 or newer, then run:
+These remain useful for offline parser testing, but the live direct request is currently blocked by Full-Time:
 
 ```sh
 cd automation
@@ -39,16 +43,14 @@ npm test
 npm run sync -- --dry-run
 ```
 
-After checking the dry-run output, adapt the absolute path in `crontab.example` and add those lines to the server crontab.
-
 ## Useful commands
 
 ```sh
-# Download and parse the live pages, but do not write Firebase
-npm run sync -- --dry-run
+# Ask normal Chrome and the EUYFC extension to run the sync
+npm run desktop
 
-# Run a live sync immediately
-npm run sync
+# Start the authenticated local helper manually
+npm run desktop-service
 
 # Test saved HTML without contacting Full-Time or writing Firebase
 npm run sync -- --dry-run --results-file test/fixtures-results.html --fixtures-file test/fixtures-list.html

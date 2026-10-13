@@ -8,6 +8,8 @@
     "node": ">=20.18.1"
   },
   "scripts": {
+    "desktop": "node desktop-sync.mjs",
+    "desktop-service": "node desktop-sync-service.mjs",
     "sync": "node fulltime-sync.mjs",
     "test": "node --test"
   },
